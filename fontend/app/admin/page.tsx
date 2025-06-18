@@ -1,17 +1,18 @@
-"use client"
+'use client';
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type React from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog';
 import {
   Tent,
   Users,
@@ -41,249 +42,256 @@ import {
   MessageCircle,
   AlertTriangle,
   UserPlus,
-} from "lucide-react"
-import Link from "next/link"
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+
+// Define interfaces for data structures
+interface Stat {
+  title: string;
+  value: string;
+  icon: keyof typeof iconMap;
+  color: string;
+  change: string;
+}
+
+interface Booking {
+  _id: string;
+  customer: string;
+  service: string;
+  date: string;
+  amount: number;
+  status: 'confirmed' | 'completed' | 'pending' | 'cancelled';
+}
+
+interface Staff {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'staff' | 'manager' | 'guide';
+  department: string;
+  joinDate: string;
+  status: 'active' | 'inactive';
+}
+
+interface Service {
+  _id: string;
+  name: string;
+  location: string;
+  price: number;
+  bookings: number;
+  rating: number;
+  status: 'active' | 'inactive';
+}
+
+interface Equipment {
+  _id: string;
+  name: string;
+  category: string;
+  price_per_day: number;
+  available: number;
+  total: number;
+  status: 'available' | 'out_of_stock';
+}
+
+interface Customer {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  bookings: number;
+  spent: number;
+  created_at: string;
+}
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string;
+}
+
+const iconMap: { [key: string]: LucideIcon } = {
+  Users,
+  ShoppingCart,
+  DollarSign,
+  Star,
+};
 
 export default function AdminDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState("month")
-  const [isCreateStaffOpen, setIsCreateStaffOpen] = useState(false)
+  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [isCreateStaffOpen, setIsCreateStaffOpen] = useState(false);
   const [staffFormData, setStaffFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    password: "",
-    role: "staff",
-    department: "",
-  })
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'staff' as 'staff' | 'manager' | 'guide',
+    department: '',
+  });
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchStaff, setSearchStaff] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [searchBookings, setSearchBookings] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'overview';
+  const [selectedTab, setSelectedTab] = useState(initialTab);
 
-  // Mock data
-  const stats = [
-    { title: "Tổng khách hàng", value: "1,234", change: "+12%", icon: Users, color: "text-blue-600" },
-    { title: "Đơn hàng tháng này", value: "89", change: "+8%", icon: ShoppingCart, color: "text-green-600" },
-    { title: "Doanh thu tháng", value: "245M", change: "+15%", icon: DollarSign, color: "text-yellow-600" },
-    { title: "Đánh giá TB", value: "4.7", change: "+0.2", icon: Star, color: "text-purple-600" },
-  ]
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
 
-  const recentBookings = [
-    {
-      id: "OGC001",
-      customer: "Nguyễn Văn A",
-      service: "Cắm trại Sapa",
-      date: "15/12/2024",
-      amount: "2.500.000đ",
-      status: "confirmed",
-    },
-    {
-      id: "OGC002",
-      customer: "Trần Thị B",
-      service: "Thuê lều 4 người",
-      date: "14/12/2024",
-      amount: "450.000đ",
-      status: "completed",
-    },
-    {
-      id: "OGC003",
-      customer: "Lê Văn C",
-      service: "Cắm trại Phú Quốc",
-      date: "13/12/2024",
-      amount: "1.800.000đ",
-      status: "pending",
-    },
-    {
-      id: "OGC004",
-      customer: "Phạm Thị D",
-      service: "Cắm trại Đà Lạt",
-      date: "12/12/2024",
-      amount: "3.200.000đ",
-      status: "cancelled",
-    },
-  ]
+      try {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-  const staff = [
-    {
-      id: 1,
-      name: "Nguyễn Văn E",
-      email: "nvane@ogcamping.vn",
-      phone: "0123456789",
-      role: "staff",
-      department: "Hướng dẫn viên",
-      joinDate: "15/10/2024",
-      status: "active",
-    },
-    {
-      id: 2,
-      name: "Trần Thị F",
-      email: "tthif@ogcamping.vn",
-      phone: "0987654321",
-      role: "staff",
-      department: "Kho thiết bị",
-      joinDate: "20/09/2024",
-      status: "active",
-    },
-    {
-      id: 3,
-      name: "Lê Văn G",
-      email: "lvang@ogcamping.vn",
-      phone: "0456789123",
-      role: "manager",
-      department: "Quản lý tour",
-      joinDate: "05/08/2024",
-      status: "active",
-    },
-  ]
+        const userResponse = await axios.get('http://localhost:8080/users/me');
+        if (userResponse.data.role !== 'admin') {
+          router.push('/login');
+          return;
+        }
+        setUser(userResponse.data);
 
-  const services = [
-    {
-      id: 1,
-      name: "Cắm trại núi Sapa",
-      location: "Sapa",
-      price: "2.500.000đ",
-      bookings: 45,
-      rating: 4.8,
-      status: "active",
-    },
-    {
-      id: 2,
-      name: "Cắm trại biển Phú Quốc",
-      location: "Phú Quốc",
-      price: "1.800.000đ",
-      bookings: 32,
-      rating: 4.9,
-      status: "active",
-    },
-    {
-      id: 3,
-      name: "Cắm trại gia đình Đà Lạt",
-      location: "Đà Lạt",
-      price: "3.200.000đ",
-      bookings: 28,
-      rating: 4.7,
-      status: "active",
-    },
-    {
-      id: 4,
-      name: "Cắm trại rừng Cát Tiên",
-      location: "Đồng Nai",
-      price: "2.800.000đ",
-      bookings: 15,
-      rating: 4.6,
-      status: "inactive",
-    },
-  ]
+        const statsResponse = await axios.get(`http://localhost:8080/stats?period=${selectedPeriod}`);
+        setStats(statsResponse.data.stats);
 
-  const equipment = [
-    {
-      id: 1,
-      name: "Lều cắm trại 4 người",
-      category: "Lều",
-      price: "150.000đ/ngày",
-      available: 12,
-      total: 15,
-      status: "available",
-    },
-    {
-      id: 2,
-      name: "Bếp gas mini",
-      category: "Nấu ăn",
-      price: "80.000đ/ngày",
-      available: 8,
-      total: 10,
-      status: "available",
-    },
-    {
-      id: 3,
-      name: "Đèn pin LED",
-      category: "Chiếu sáng",
-      price: "50.000đ/ngày",
-      available: 20,
-      total: 25,
-      status: "available",
-    },
-    {
-      id: 4,
-      name: "Túi ngủ cao cấp",
-      category: "Ngủ nghỉ",
-      price: "120.000đ/ngày",
-      available: 0,
-      total: 8,
-      status: "out_of_stock",
-    },
-  ]
+        const bookingsResponse = await axios.get('http://localhost:8080/bookings');
+        setBookings(bookingsResponse.data);
 
-  const customers = [
-    {
-      id: 1,
-      name: "Nguyễn Văn A",
-      email: "nguyenvana@email.com",
-      phone: "0123456789",
-      bookings: 5,
-      spent: "12.500.000đ",
-      joined: "15/10/2024",
-    },
-    {
-      id: 2,
-      name: "Trần Thị B",
-      email: "tranthib@email.com",
-      phone: "0987654321",
-      bookings: 3,
-      spent: "8.200.000đ",
-      joined: "20/09/2024",
-    },
-    {
-      id: 3,
-      name: "Lê Văn C",
-      email: "levanc@email.com",
-      phone: "0456789123",
-      bookings: 7,
-      spent: "18.900.000đ",
-      joined: "05/08/2024",
-    },
-  ]
+        const staffResponse = await axios.get('http://localhost:8080/users?role=staff,manager,guide');
+        setStaff(staffResponse.data);
+
+        const servicesResponse = await axios.get('http://localhost:8080/packages');
+        setServices(servicesResponse.data);
+
+        const equipmentResponse = await axios.get('http://localhost:8080/gears');
+        setEquipment(equipmentResponse.data);
+
+        const customersResponse = await axios.get('http://localhost:8080/users/customers');
+        setCustomers(customersResponse.data);
+      } catch (err: any) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('user');
+          router.push('/login');
+        } else {
+          setError(err.response?.data?.error || 'Lỗi khi tải dữ liệu');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [router, selectedPeriod]);
+
+  const handleCreateStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      const response = await axios.post(
+        'http://localhost:8080/users',
+        {
+          name: staffFormData.fullName,
+          email: staffFormData.email,
+          password_hash: staffFormData.password,
+          phone: staffFormData.phone,
+          role: staffFormData.role,
+          department: staffFormData.department,
+          joinDate: new Date().toISOString().split('T')[0],
+          status: 'active',
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setStaff([...staff, response.data]);
+      setIsCreateStaffOpen(false);
+      setStaffFormData({
+        fullName: '',
+        email: '',
+        phone: '',
+        password: '',
+        role: 'staff',
+        department: '',
+      });
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Lỗi khi tạo nhân viên');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
+    router.push('/login');
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return <Badge className="bg-green-100 text-green-800 border-0">Đã xác nhận</Badge>
-      case "completed":
-        return <Badge className="bg-blue-100 text-blue-800 border-0">Hoàn thành</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-0">Chờ xử lý</Badge>
-      case "cancelled":
-        return <Badge className="bg-red-100 text-red-800 border-0">Đã hủy</Badge>
-      case "active":
-        return <Badge className="bg-green-100 text-green-800 border-0">Hoạt động</Badge>
-      case "inactive":
-        return <Badge className="bg-gray-100 text-gray-800 border-0">Tạm dừng</Badge>
-      case "available":
-        return <Badge className="bg-green-100 text-green-800 border-0">Còn hàng</Badge>
-      case "out_of_stock":
-        return <Badge className="bg-red-100 text-red-800 border-0">Hết hàng</Badge>
+      case 'confirmed':
+        return <Badge className="bg-green-100 text-green-800 border-0">Đã xác nhận</Badge>;
+      case 'completed':
+        return <Badge className="bg-blue-100 text-blue-800 border-0">Hoàn thành</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800 border-0">Chờ xử lý</Badge>;
+      case 'cancelled':
+        return <Badge className="bg-red-100 text-red-800 border-0">Đã hủy</Badge>;
+      case 'active':
+        return <Badge className="bg-green-100 text-green-800 border-0">Hoạt động</Badge>;
+      case 'inactive':
+        return <Badge className="bg-gray-100 text-gray-800 border-0">Tạm dừng</Badge>;
+      case 'available':
+        return <Badge className="bg-green-100 text-green-800 border-0">Còn hàng</Badge>;
+      case 'out_of_stock':
+        return <Badge className="bg-red-100 text-red-800 border-0">Hết hàng</Badge>;
       default:
-        return (
-          <Badge variant="secondary" className="border-0">
-            Không xác định
-          </Badge>
-        )
+        return <Badge variant="secondary" className="border-0">Không xác định</Badge>;
     }
+  };
+
+  const filteredStaff = staff.filter(
+    (member) =>
+      member.name.toLowerCase().includes(searchStaff.toLowerCase()) &&
+      (filterDepartment === 'all' || member.department === filterDepartment)
+  );
+
+  const filteredBookings = bookings.filter(
+    (booking) =>
+      (booking.customer.toLowerCase().includes(searchBookings.toLowerCase()) ||
+        booking.service.toLowerCase().includes(searchBookings.toLowerCase())) &&
+      (filterStatus === 'all' || booking.status === filterStatus)
+  );
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
   }
 
-  const handleCreateStaff = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Creating staff:", staffFormData)
-    setIsCreateStaffOpen(false)
-    setStaffFormData({
-      fullName: "",
-      email: "",
-      phone: "",
-      password: "",
-      role: "staff",
-      department: "",
-    })
+  if (!user) {
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -299,10 +307,15 @@ export default function AdminDashboard() {
               <Settings className="w-4 h-4" />
             </Button>
             <Avatar>
-              <AvatarImage src="/admin-avatar.png" />
-              <AvatarFallback>AD</AvatarFallback>
+              <AvatarImage src={user.avatar || '/admin-avatar.png'} />
+              <AvatarFallback>{user.name?.[0] || 'AD'}</AvatarFallback>
             </Avatar>
-            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              onClick={handleLogout}
+            >
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -310,16 +323,18 @@ export default function AdminDashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Quản trị</h1>
           <p className="text-gray-600">Quản lý hệ thống OG Camping</p>
         </div>
 
-        {/* Stats Cards */}
+        {error && (
+          <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">{error}</div>
+        )}
+
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => {
-            const Icon = stat.icon
+            const Icon = iconMap[stat.icon];
             return (
               <Card key={index} className="hover:shadow-lg transition-shadow border-0">
                 <CardContent className="p-6">
@@ -333,36 +348,61 @@ export default function AdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            )
+            );
           })}
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-32 border-gray-300">
+              <SelectValue placeholder="Thời gian" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Tháng này</SelectItem>
+              <SelectItem value="week">Tuần này</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           <TabsList className="grid w-full lg:w-auto grid-cols-6 bg-gray-100">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+            <TabsTrigger
+              value="overview"
+              className="data-[state=active]:bg-white data-[state=active]:text-gray-900"
+            >
               Tổng quan
             </TabsTrigger>
-            <TabsTrigger value="bookings" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+            <TabsTrigger
+              value="bookings"
+              className="data-[state=active]:bg-white data-[state=active]:text-gray-900"
+            >
               Đơn hàng
             </TabsTrigger>
-            <TabsTrigger value="services" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+            <TabsTrigger
+              value="services"
+              className="data-[state=active]:bg-white data-[state=active]:text-gray-900"
+            >
               Dịch vụ
             </TabsTrigger>
-            <TabsTrigger value="equipment" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+            <TabsTrigger
+              value="equipment"
+              className="data-[state=active]:bg-white data-[state=active]:text-gray-900"
+            >
               Thiết bị
             </TabsTrigger>
-            <TabsTrigger value="customers" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+            <TabsTrigger
+              value="customers"
+              className="data-[state=active]:bg-white data-[state=active]:text-gray-900"
+            >
               Khách hàng
             </TabsTrigger>
-            <TabsTrigger value="staff" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+            <TabsTrigger
+              value="staff"
+              className="data-[state=active]:bg-white data-[state=active]:text-gray-900"
+            >
               Nhân viên
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Recent Bookings */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle>Đơn hàng gần đây</CardTitle>
@@ -370,9 +410,9 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentBookings.slice(0, 4).map((booking) => (
+                    {filteredBookings.slice(0, 4).map((booking) => (
                       <div
-                        key={booking.id}
+                        key={booking._id}
                         className="flex items-center justify-between p-3 border rounded-lg border-gray-200"
                       >
                         <div>
@@ -382,34 +422,47 @@ export default function AdminDashboard() {
                         </div>
                         <div className="text-right">
                           {getStatusBadge(booking.status)}
-                          <p className="text-sm font-medium mt-1">{booking.amount}</p>
+                          <p className="text-sm font-medium mt-1">
+                            {booking.amount.toLocaleString('vi-VN')}đ
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <Button variant="outline" className="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50">
-                    Xem tất cả đơn hàng
+                  <Button
+                    variant="outline"
+                    className="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50"
+                    asChild
+                  >
+                    <Link href="/admin/bookings">Xem tất cả đơn hàng</Link>
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Quick Actions */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle>Thao tác nhanh</CardTitle>
                   <CardDescription>Các tính năng quản lý thường dùng</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full justify-start bg-green-600 hover:bg-green-700 text-white border-0">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Thêm dịch vụ mới
+                  <Button
+                    className="w-full justify-start bg-green-600 hover:bg-green-700 text-white border-0"
+                    asChild
+                  >
+                    <Link href="/admin/services/new">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Thêm dịch vụ mới
+                    </Link>
                   </Button>
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gray-300 text-gray-700 hover:bg-gray-50"
+                    asChild
                   >
-                    <Package className="w-4 h-4 mr-2" />
-                    Quản lý kho thiết bị
+                    <Link href="/admin/equipment">
+                      <Package className="w-4 h-4 mr-2" />
+                      Quản lý kho thiết bị
+                    </Link>
                   </Button>
                   <Dialog open={isCreateStaffOpen} onOpenChange={setIsCreateStaffOpen}>
                     <DialogTrigger asChild>
@@ -424,8 +477,15 @@ export default function AdminDashboard() {
                     <DialogContent className="border-0">
                       <DialogHeader>
                         <DialogTitle>Tạo tài khoản nhân viên</DialogTitle>
-                        <DialogDescription>Điền thông tin để tạo tài khoản nhân viên mới</DialogDescription>
+                        <DialogDescription>
+                          Điền thông tin để tạo tài khoản nhân viên mới
+                        </DialogDescription>
                       </DialogHeader>
+                      {error && (
+                        <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">
+                          {error}
+                        </div>
+                      )}
                       <form onSubmit={handleCreateStaff} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -433,7 +493,9 @@ export default function AdminDashboard() {
                             <Input
                               id="staffName"
                               value={staffFormData.fullName}
-                              onChange={(e) => setStaffFormData((prev) => ({ ...prev, fullName: e.target.value }))}
+                              onChange={(e) =>
+                                setStaffFormData((prev) => ({ ...prev, fullName: e.target.value }))
+                              }
                               placeholder="Nguyễn Văn A"
                               className="border-gray-300 focus:border-green-500"
                               required
@@ -445,7 +507,9 @@ export default function AdminDashboard() {
                               id="staffEmail"
                               type="email"
                               value={staffFormData.email}
-                              onChange={(e) => setStaffFormData((prev) => ({ ...prev, email: e.target.value }))}
+                              onChange={(e) =>
+                                setStaffFormData((prev) => ({ ...prev, email: e.target.value }))
+                              }
                               placeholder="email@ogcamping.vn"
                               className="border-gray-300 focus:border-green-500"
                               required
@@ -458,7 +522,9 @@ export default function AdminDashboard() {
                             <Input
                               id="staffPhone"
                               value={staffFormData.phone}
-                              onChange={(e) => setStaffFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                              onChange={(e) =>
+                                setStaffFormData((prev) => ({ ...prev, phone: e.target.value }))
+                              }
                               placeholder="0123456789"
                               className="border-gray-300 focus:border-green-500"
                               required
@@ -468,7 +534,12 @@ export default function AdminDashboard() {
                             <Label htmlFor="staffRole">Vai trò *</Label>
                             <Select
                               value={staffFormData.role}
-                              onValueChange={(value) => setStaffFormData((prev) => ({ ...prev, role: value }))}
+                              onValueChange={(value) =>
+                                setStaffFormData((prev) => ({
+                                  ...prev,
+                                  role: value as 'staff' | 'manager' | 'guide',
+                                }))
+                              }
                             >
                               <SelectTrigger className="border-gray-300 focus:border-green-500">
                                 <SelectValue placeholder="Chọn vai trò" />
@@ -485,7 +556,9 @@ export default function AdminDashboard() {
                           <Label htmlFor="staffDepartment">Bộ phận</Label>
                           <Select
                             value={staffFormData.department}
-                            onValueChange={(value) => setStaffFormData((prev) => ({ ...prev, department: value }))}
+                            onValueChange={(value) =>
+                              setStaffFormData((prev) => ({ ...prev, department: value }))
+                            }
                           >
                             <SelectTrigger className="border-gray-300 focus:border-green-500">
                               <SelectValue placeholder="Chọn bộ phận" />
@@ -504,7 +577,9 @@ export default function AdminDashboard() {
                             id="staffPassword"
                             type="password"
                             value={staffFormData.password}
-                            onChange={(e) => setStaffFormData((prev) => ({ ...prev, password: e.target.value }))}
+                            onChange={(e) =>
+                              setStaffFormData((prev) => ({ ...prev, password: e.target.value }))
+                            }
                             placeholder="••••••••"
                             className="border-gray-300 focus:border-green-500"
                             required
@@ -514,7 +589,10 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-2 pt-4">
-                          <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white border-0">
+                          <Button
+                            type="submit"
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white border-0"
+                          >
                             Tạo tài khoản
                           </Button>
                           <Button
@@ -532,15 +610,17 @@ export default function AdminDashboard() {
                   <Button
                     variant="outline"
                     className="w-full justify-start border-gray-300 text-gray-700 hover:bg-gray-50"
+                    asChild
                   >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Xem báo cáo chi tiết
+                    <Link href="/admin/reports">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Xem báo cáo chi tiết
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Alerts */}
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -550,13 +630,17 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                    <div>
-                      <p className="font-medium text-yellow-800">Thiết bị sắp hết</p>
-                      <p className="text-sm text-yellow-700">Túi ngủ cao cấp đã hết hàng, cần nhập thêm</p>
+                  {equipment.some((item) => item.available === 0) && (
+                    <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                      <div>
+                        <p className="font-medium text-yellow-800">Thiết bị sắp hết</p>
+                        <p className="text-sm text-yellow-700">
+                          {equipment.find((item) => item.available === 0)?.name} đã hết hàng, cần nhập thêm
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <MessageCircle className="w-5 h-5 text-blue-600" />
                     <div>
@@ -600,9 +684,11 @@ export default function AdminDashboard() {
                     <Input
                       placeholder="Tìm kiếm nhân viên..."
                       className="pl-10 border-gray-300 focus:border-green-500"
+                      value={searchStaff}
+                      onChange={(e) => setSearchStaff(e.target.value)}
                     />
                   </div>
-                  <Select>
+                  <Select value={filterDepartment} onValueChange={setFilterDepartment}>
                     <SelectTrigger className="w-48 border-gray-300">
                       <SelectValue placeholder="Bộ phận" />
                     </SelectTrigger>
@@ -630,20 +716,24 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {staff.map((member) => (
-                      <TableRow key={member.id}>
+                    {filteredStaff.map((member) => (
+                      <TableRow key={member._id}>
                         <TableCell className="font-medium">{member.name}</TableCell>
                         <TableCell>{member.email}</TableCell>
                         <TableCell>{member.phone}</TableCell>
                         <TableCell>
                           <Badge
                             className={
-                              member.role === "manager"
-                                ? "bg-purple-100 text-purple-800 border-0"
-                                : "bg-blue-100 text-blue-800 border-0"
+                              member.role === 'manager'
+                                ? 'bg-purple-100 text-purple-800 border-0'
+                                : 'bg-blue-100 text-blue-800 border-0'
                             }
                           >
-                            {member.role === "manager" ? "Quản lý" : "Nhân viên"}
+                            {member.role === 'manager'
+                              ? 'Quản lý'
+                              : member.role === 'guide'
+                              ? 'Hướng dẫn viên'
+                              : 'Nhân viên'}
                           </Badge>
                         </TableCell>
                         <TableCell>{member.department}</TableCell>
@@ -682,7 +772,6 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Other existing tabs content remains the same but with updated button styles */}
           <TabsContent value="bookings">
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -692,11 +781,19 @@ export default function AdminDashboard() {
                     <CardDescription>Tất cả đơn đặt dịch vụ và thiết bị</CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
                       <Filter className="w-4 h-4 mr-2" />
                       Lọc
                     </Button>
-                    <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
                       <Download className="w-4 h-4 mr-2" />
                       Xuất Excel
                     </Button>
@@ -710,9 +807,11 @@ export default function AdminDashboard() {
                     <Input
                       placeholder="Tìm kiếm đơn hàng..."
                       className="pl-10 border-gray-300 focus:border-green-500"
+                      value={searchBookings}
+                      onChange={(e) => setSearchBookings(e.target.value)}
                     />
                   </div>
-                  <Select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
                     <SelectTrigger className="w-48 border-gray-300">
                       <SelectValue placeholder="Trạng thái" />
                     </SelectTrigger>
@@ -739,13 +838,13 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentBookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="font-medium">{booking.id}</TableCell>
+                    {filteredBookings.map((booking) => (
+                      <TableRow key={booking._id}>
+                        <TableCell className="font-medium">{booking._id}</TableCell>
                         <TableCell>{booking.customer}</TableCell>
                         <TableCell>{booking.service}</TableCell>
                         <TableCell>{booking.date}</TableCell>
-                        <TableCell>{booking.amount}</TableCell>
+                        <TableCell>{booking.amount.toLocaleString('vi-VN')}đ</TableCell>
                         <TableCell>{getStatusBadge(booking.status)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -781,9 +880,11 @@ export default function AdminDashboard() {
                     <CardTitle>Quản lý dịch vụ</CardTitle>
                     <CardDescription>Danh sách các gói dịch vụ cắm trại</CardDescription>
                   </div>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white border-0">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Thêm dịch vụ
+                  <Button className="bg-green-600 hover:bg-green-700 text-white border-0" asChild>
+                    <Link href="/admin/services/new">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Thêm dịch vụ
+                    </Link>
                   </Button>
                 </div>
               </CardHeader>
@@ -802,10 +903,10 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {services.map((service) => (
-                      <TableRow key={service.id}>
+                      <TableRow key={service._id}>
                         <TableCell className="font-medium">{service.name}</TableCell>
                         <TableCell>{service.location}</TableCell>
-                        <TableCell>{service.price}</TableCell>
+                        <TableCell>{service.price.toLocaleString('vi-VN')}đ</TableCell>
                         <TableCell>{service.bookings}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -855,9 +956,11 @@ export default function AdminDashboard() {
                     <CardTitle>Quản lý thiết bị</CardTitle>
                     <CardDescription>Kho thiết bị cho thuê</CardDescription>
                   </div>
-                  <Button className="bg-green-600 hover:bg-green-700 text-white border-0">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Thêm thiết bị
+                  <Button className="bg-green-600 hover:bg-green-700 text-white border-0" asChild>
+                    <Link href="/admin/equipment/new">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Thêm thiết bị
+                    </Link>
                   </Button>
                 </div>
               </CardHeader>
@@ -875,10 +978,14 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {equipment.map((item) => (
-                      <TableRow key={item.id}>
+                      <TableRow key={item._id}>
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>{item.category}</TableCell>
-                        <TableCell>{item.price}</TableCell>
+                        <TableCell>
+                          {typeof item.price_per_day === 'number'
+                            ? `${item.price_per_day.toLocaleString('vi-VN')}đ/ngày`
+                            : 'N/A'}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span>
@@ -886,7 +993,13 @@ export default function AdminDashboard() {
                             </span>
                             <div className="w-16 bg-gray-200 rounded-full h-2">
                               <div
-                                className={`h-2 rounded-full ${item.available === 0 ? "bg-red-500" : item.available <= 3 ? "bg-yellow-500" : "bg-green-500"}`}
+                                className={`h-2 rounded-full ${
+                                  item.available === 0
+                                    ? 'bg-red-500'
+                                    : item.available <= 3
+                                    ? 'bg-yellow-500'
+                                    : 'bg-green-500'
+                                }`}
                                 style={{ width: `${(item.available / item.total) * 100}%` }}
                               ></div>
                             </div>
@@ -955,26 +1068,28 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {customers.map((customer) => (
-                      <TableRow key={customer.id}>
+                      <TableRow key={customer._id}>
                         <TableCell className="font-medium">{customer.name}</TableCell>
                         <TableCell>{customer.email}</TableCell>
                         <TableCell>{customer.phone}</TableCell>
                         <TableCell>{customer.bookings}</TableCell>
-                        <TableCell>{customer.spent}</TableCell>
-                        <TableCell>{customer.joined}</TableCell>
+                        <TableCell>{customer.spent.toLocaleString('vi-VN')}đ</TableCell>
+                        <TableCell>
+                          {new Date(customer.created_at).toLocaleDateString('vi-VN')}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                              className="text-blue-600 hover:text-blue-900 hover:bg-blue-50"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                              className="text-blue-600 hover:text-blue-900 hover:bg-blue-50"
                             >
                               <MessageCircle className="w-4 h-4" />
                             </Button>
@@ -990,5 +1105,5 @@ export default function AdminDashboard() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

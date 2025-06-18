@@ -1,15 +1,17 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Tent,
   Package,
@@ -25,107 +27,155 @@ import {
   MessageCircle,
   Phone,
   Mail,
-} from "lucide-react"
-import Link from "next/link"
+} from 'lucide-react';
+import Link from 'next/link';
+import type { LucideIcon } from 'lucide-react';
+
+interface Order {
+  _id: string;
+  customer: string;
+  service: string;
+  date: string;
+  phone: string;
+  status: 'pending_confirmation' | 'pending_payment' | 'confirmed';
+  priority: 'high' | 'medium' | 'low';
+}
+
+interface EquipmentCheck {
+  _id: string;
+  name: string;
+  code: string;
+  lastCheck: string;
+  nextCheck: string;
+  status: 'due' | 'upcoming' | 'overdue';
+}
+
+interface Stat {
+  title: string;
+  value: string;
+  icon: keyof typeof iconMap; // Restrict to iconMap keys
+  color: string;
+}
+
+// Define iconMap with explicit types
+const iconMap: { [key: string]: LucideIcon } = {
+  Calendar,
+  Clock,
+  CheckCircle,
+  Package,
+};
 
 export default function StaffDashboard() {
-  const [selectedTab, setSelectedTab] = useState("orders")
+  const [selectedTab, setSelectedTab] = useState('orders');
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
+  const [equipmentChecks, setEquipmentChecks] = useState<EquipmentCheck[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchOrders, setSearchOrders] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const router = useRouter();
 
-  // Mock data
-  const todayStats = [
-    { title: "Đơn hàng hôm nay", value: "12", icon: Calendar, color: "text-blue-600" },
-    { title: "Cần xử lý", value: "5", icon: Clock, color: "text-yellow-600" },
-    { title: "Đã hoàn thành", value: "7", icon: CheckCircle, color: "text-green-600" },
-    { title: "Thiết bị cần kiểm tra", value: "3", icon: Package, color: "text-purple-600" },
-  ]
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  const pendingOrders = [
-    {
-      id: "OGC001",
-      customer: "Nguyễn Văn A",
-      service: "Cắm trại Sapa",
-      date: "15/12/2024",
-      phone: "0123456789",
-      status: "pending_confirmation",
-      priority: "high",
-    },
-    {
-      id: "OGC002",
-      customer: "Trần Thị B",
-      service: "Thuê lều 4 người",
-      date: "16/12/2024",
-      phone: "0987654321",
-      status: "pending_payment",
-      priority: "medium",
-    },
-    {
-      id: "OGC003",
-      customer: "Lê Văn C",
-      service: "Cắm trại Phú Quốc",
-      date: "17/12/2024",
-      phone: "0456789123",
-      status: "confirmed",
-      priority: "low",
-    },
-  ]
+        const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        if (!token) {
+          router.push('/login');
+          return;
+        }
 
-  const equipmentChecks = [
-    {
-      id: 1,
-      name: "Lều cắm trại 4 người",
-      code: "TENT001",
-      lastCheck: "10/12/2024",
-      nextCheck: "15/12/2024",
-      status: "due",
-    },
-    {
-      id: 2,
-      name: "Bếp gas mini",
-      code: "STOVE005",
-      lastCheck: "12/12/2024",
-      nextCheck: "17/12/2024",
-      status: "upcoming",
-    },
-    {
-      id: 3,
-      name: "Túi ngủ cao cấp",
-      code: "SLEEP003",
-      lastCheck: "08/12/2024",
-      nextCheck: "13/12/2024",
-      status: "overdue",
-    },
-  ]
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+        // Fetch user to verify staff role
+        const userResponse = await axios.get('http://localhost:8080/users/me');
+        const role = userResponse.data.role;
+        if (!['staff', 'manager', 'guide'].includes(role)) {
+          router.push('/login');
+          return;
+        }
+
+        // Fetch stats
+        const statsResponse = await axios.get('http://localhost:8080/stats/staff');
+        setStats(statsResponse.data.stats);
+
+        // Fetch pending orders
+        const ordersResponse = await axios.get('http://localhost:8080/bookings/pending');
+        setPendingOrders(ordersResponse.data);
+
+        // Fetch equipment checks
+        const equipmentResponse = await axios.get('http://localhost:8080/equipment/checks');
+        setEquipmentChecks(equipmentResponse.data);
+      } catch (err: any) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('user');
+          router.push('/login');
+        } else {
+          setError(err.response?.data?.error || 'Lỗi khi tải dữ liệu');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
+    router.push('/login');
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending_confirmation":
-        return <Badge className="bg-yellow-100 text-yellow-800">Chờ xác nhận</Badge>
-      case "pending_payment":
-        return <Badge className="bg-orange-100 text-orange-800">Chờ thanh toán</Badge>
-      case "confirmed":
-        return <Badge className="bg-green-100 text-green-800">Đã xác nhận</Badge>
-      case "due":
-        return <Badge className="bg-red-100 text-red-800">Cần kiểm tra</Badge>
-      case "upcoming":
-        return <Badge className="bg-yellow-100 text-yellow-800">Sắp đến hạn</Badge>
-      case "overdue":
-        return <Badge className="bg-red-100 text-red-800">Quá hạn</Badge>
+      case 'pending_confirmation':
+        return <Badge className="bg-yellow-100 text-yellow-800">Chờ xác nhận</Badge>;
+      case 'pending_payment':
+        return <Badge className="bg-orange-100 text-orange-800">Chờ thanh toán</Badge>;
+      case 'confirmed':
+        return <Badge className="bg-green-100 text-green-800">Đã xác nhận</Badge>;
+      case 'due':
+        return <Badge className="bg-red-100 text-red-800">Cần kiểm tra</Badge>;
+      case 'upcoming':
+        return <Badge className="bg-yellow-100 text-yellow-800">Sắp đến hạn</Badge>;
+      case 'overdue':
+        return <Badge className="bg-red-100 text-red-800">Quá hạn</Badge>;
       default:
-        return <Badge variant="secondary">Không xác định</Badge>
+        return <Badge variant="secondary">Không xác định</Badge>;
     }
-  }
+  };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case "high":
-        return <Badge variant="destructive">Cao</Badge>
-      case "medium":
-        return <Badge className="bg-yellow-100 text-yellow-800">Trung bình</Badge>
-      case "low":
-        return <Badge className="bg-green-100 text-green-800">Thấp</Badge>
+      case 'high':
+        return <Badge variant="destructive">Cao</Badge>;
+      case 'medium':
+        return <Badge className="bg-yellow-100 text-yellow-800">Trung bình</Badge>;
+      case 'low':
+        return <Badge className="bg-green-100 text-green-800">Thấp</Badge>;
       default:
-        return <Badge variant="secondary">Bình thường</Badge>
+        return <Badge variant="secondary">Bình thường</Badge>;
     }
+  };
+
+  const filteredOrders = pendingOrders.filter(
+    (order) =>
+      (order.customer.toLowerCase().includes(searchOrders.toLowerCase()) ||
+        order.service.toLowerCase().includes(searchOrders.toLowerCase())) &&
+      (filterStatus === 'all' || order.status === filterStatus)
+  );
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
   }
 
   return (
@@ -149,7 +199,7 @@ export default function StaffDashboard() {
               <AvatarImage src="/staff-avatar.png" />
               <AvatarFallback>ST</AvatarFallback>
             </Avatar>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -157,6 +207,11 @@ export default function StaffDashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-800 rounded">
+            Error: {error}
+          </div>
+        )}
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Nhân viên</h1>
@@ -165,8 +220,8 @@ export default function StaffDashboard() {
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {todayStats.map((stat, index) => {
-            const Icon = stat.icon
+          {stats.map((stat, index) => {
+            const Icon = iconMap[stat.icon]; // Now properly typed
             return (
               <Card key={index} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
@@ -179,7 +234,7 @@ export default function StaffDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            )
+            );
           })}
         </div>
 
@@ -212,17 +267,22 @@ export default function StaffDashboard() {
                 <div className="flex gap-4 mb-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input placeholder="Tìm kiếm đơn hàng..." className="pl-10" />
+                    <Input
+                      placeholder="Tìm kiếm đơn hàng..."
+                      className="pl-10"
+                      value={searchOrders}
+                      onChange={(e) => setSearchOrders(e.target.value)}
+                    />
                   </div>
-                  <Select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Trạng thái" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="pending">Chờ xử lý</SelectItem>
+                      <SelectItem value="pending_confirmation">Chờ xác nhận</SelectItem>
+                      <SelectItem value="pending_payment">Chờ thanh toán</SelectItem>
                       <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-                      <SelectItem value="completed">Hoàn thành</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -240,9 +300,9 @@ export default function StaffDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendingOrders.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id}</TableCell>
+                    {filteredOrders.map((order) => (
+                      <TableRow key={order._id}>
+                        <TableCell className="font-medium">{order._id}</TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{order.customer}</p>
@@ -327,7 +387,7 @@ export default function StaffDashboard() {
                   </TableHeader>
                   <TableBody>
                     {equipmentChecks.map((equipment) => (
-                      <TableRow key={equipment.id}>
+                      <TableRow key={equipment._id}>
                         <TableCell className="font-medium">{equipment.name}</TableCell>
                         <TableCell>{equipment.code}</TableCell>
                         <TableCell>{equipment.lastCheck}</TableCell>
@@ -383,5 +443,5 @@ export default function StaffDashboard() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

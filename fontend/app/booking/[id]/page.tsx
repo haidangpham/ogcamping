@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
-import { Tent, ArrowLeft, Calendar, Users, CreditCard, Shield, CheckCircle } from "lucide-react"
+import { Tent, ArrowLeft, Calendar, Users, CreditCard, Shield, CheckCircle,Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 

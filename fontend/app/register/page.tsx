@@ -1,14 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Tent, Eye, EyeOff, Mail, Lock, User, Phone, Sparkles} from "lucide-react"
+import { Tent, Eye, EyeOff, Mail, Lock, User, Phone, Sparkles } from "lucide-react"
 import Link from "next/link"
 
 export default function RegisterPage() {
@@ -23,11 +24,46 @@ export default function RegisterPage() {
     agreeTerms: false,
     agreeMarketing: false,
   })
+  
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle registration logic here
-    console.log("Registration attempt:", formData)
+    setError(null)
+    setIsLoading(true)
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError("Mật khẩu và xác nhận mật khẩu không khớp")
+      setIsLoading(false)
+      return
+    }
+
+    // Validate agreeTerms
+    if (!formData.agreeTerms) {
+      setError("Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+     await axios.post("http://localhost:8080/users/register", {
+        name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone,
+        agreeMarketing: formData.agreeMarketing,
+      })
+
+      // Redirect to login page on success
+      router.push("/login")
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Đăng ký thất bại. Vui lòng thử lại.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -47,7 +83,7 @@ export default function RegisterPage() {
               <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
               <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
             </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            <span className="text-3xl font-bold text-green-600">OG Camping</span>
           </Link>
           <p className="text-gray-600 mt-2">Tạo tài khoản mới</p>
         </div>
@@ -58,6 +94,11 @@ export default function RegisterPage() {
             <CardDescription>Điền thông tin để tạo tài khoản mới</CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Họ và tên</Label>
@@ -187,8 +228,12 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white border-0">
-                Tạo tài khoản
+              <Button
+                type="submit"
+                className="w-full bg-green-600 hover:bg-green-700 text-white border-0"
+                disabled={isLoading}
+              >
+                {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
               </Button>
             </form>
 
@@ -203,7 +248,11 @@ export default function RegisterPage() {
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <Button variant="outline" className="w-full border-gray-300 text-gray-700 hover:bg-gray-50">
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={isLoading}
+                >
                   <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                     <path
                       fill="currentColor"
@@ -224,7 +273,11 @@ export default function RegisterPage() {
                   </svg>
                   Google
                 </Button>
-                <Button variant="outline" className="w-full border-gray-300 text-gray-700 hover:bg-gray-50">
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={isLoading}
+                >
                   <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>

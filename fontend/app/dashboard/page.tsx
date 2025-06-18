@@ -1,11 +1,13 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tent,
   Calendar,
@@ -19,76 +21,128 @@ import {
   ShoppingCart,
   MessageCircle,
   Star,
-} from "lucide-react"
-import Link from "next/link"
+} from 'lucide-react';
+import Link from 'next/link';
+
+interface Booking {
+  _id: string;
+  service: string;
+  date: string;
+  status: 'pending' | 'confirmed' | 'completed';
+  amount: number;
+  rating?: number;
+  created_at: string;
+}
+
+interface Stat {
+  title: string;
+  value: string;
+  change: string;
+  icon: string;
+  color: string;
+}
 
 export default function DashboardPage() {
-  const [userRole] = useState("customer") // This would come from auth context
+  const [user, setUser] = useState<{ name: string; email: string; phone?: string; role: string; avatar?: string } | null>(null);
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const stats = {
-    customer: [
-      { title: "Chuyến đi đã đặt", value: "12", icon: Calendar, color: "text-blue-600" },
-      { title: "Thiết bị đã thuê", value: "28", icon: Package, color: "text-green-600" },
-      { title: "Điểm tích lũy", value: "2,450", icon: Star, color: "text-yellow-600" },
-      { title: "Đánh giá trung bình", value: "4.8", icon: TrendingUp, color: "text-purple-600" },
-    ],
-    admin: [
-      { title: "Tổng khách hàng", value: "1,234", icon: Users, color: "text-blue-600" },
-      { title: "Đơn hàng tháng này", value: "89", icon: ShoppingCart, color: "text-green-600" },
-      { title: "Doanh thu tháng", value: "245M", icon: TrendingUp, color: "text-yellow-600" },
-      { title: "Đánh giá trung bình", value: "4.7", icon: Star, color: "text-purple-600" },
-    ],
-  }
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  const recentBookings = [
-    {
-      id: 1,
-      service: "Cắm trại núi Sapa",
-      date: "15/12/2024",
-      status: "confirmed",
-      amount: "2.500.000đ",
-    },
-    {
-      id: 2,
-      service: "Thuê lều 4 người",
-      date: "10/12/2024",
-      status: "completed",
-      amount: "450.000đ",
-    },
-    {
-      id: 3,
-      service: "Cắm trại biển Phú Quốc",
-      date: "05/12/2024",
-      status: "pending",
-      amount: "1.800.000đ",
-    },
-  ]
+        // Get token from storage
+        const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        if (!token) {
+          router.push('/login');
+          return;
+        }
+
+        // Set axios default headers
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+        // Fetch user data
+        const userResponse = await axios.get('http://localhost:8080/users/me');
+        setUser(userResponse.data);
+
+        // Fetch stats
+        const statsResponse = await axios.get('http://localhost:8080/stats');
+        setStats(statsResponse.data.stats);
+
+        // Fetch bookings based on role
+        const bookingsEndpoint = userResponse.data.role === 'admin' ? '/bookings' : '/bookings/user';
+        const bookingsResponse = await axios.get(`http://localhost:8080${bookingsEndpoint}`);
+        setBookings(bookingsResponse.data);
+      } catch (error: any) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('user');
+          router.push('/login');
+        } else {
+          setError(error.response?.data?.error || 'Failed to fetch data');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
+    router.push('/login');
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return <Badge className="bg-green-100 text-green-800">Đã xác nhận</Badge>
-      case "completed":
-        return <Badge className="bg-blue-100 text-blue-800">Hoàn thành</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800">Chờ xử lý</Badge>
+      case 'confirmed':
+        return <Badge className="bg-green-100 text-green-800">Đã xác nhận</Badge>;
+      case 'completed':
+        return <Badge className="bg-blue-100 text-blue-800">Hoàn thành</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800">Chờ xử lý</Badge>;
       default:
-        return <Badge variant="secondary">Không xác định</Badge>
+        return <Badge variant="secondary">Không xác định</Badge>;
     }
+  };
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
   }
 
-  const currentStats = userRole === "admin" ? stats.admin : stats.customer
+  if (!user) {
+    return null; // Redirect handled in useEffect
+  }
+
+  const iconMap: { [key: string]: any } = {
+    Calendar,
+    Package,
+    Users,
+    ShoppingCart,
+    TrendingUp,
+    Star,
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-           <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Tent className="h-8 w-8 text-green-600" />
             <span className="text-2xl font-bold text-green-800">OG Camping</span>
           </Link>
-
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm">
               <Bell className="w-4 h-4" />
@@ -97,10 +151,10 @@ export default function DashboardPage() {
               <Settings className="w-4 h-4" />
             </Button>
             <Avatar>
-              <AvatarImage src="/user-avatar.png" />
-              <AvatarFallback>JD</AvatarFallback>
+              <AvatarImage src={user.avatar || '/user-avatar.png'} />
+              <AvatarFallback>{user.name?.[0] || 'JD'}</AvatarFallback>
             </Avatar>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -108,20 +162,25 @@ export default function DashboardPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-800 rounded">
+            Error: {error}
+          </div>
+        )}
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Chào mừng trở lại, John Doe!</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Chào mừng trở lại, {user.name}!</h1>
           <p className="text-gray-600">
-            {userRole === "admin"
-              ? "Quản lý hệ thống OG Camping của bạn"
-              : "Quản lý các chuyến cắm trại và thiết bị của bạn"}
+            {user.role === 'admin'
+              ? 'Quản lý hệ thống OG Camping của bạn'
+              : 'Quản lý các chuyến cắm trại và thiết bị của bạn'}
           </p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {currentStats.map((stat, index) => {
-            const Icon = stat.icon
+          {stats.map((stat, index) => {
+            const Icon = iconMap[stat.icon];
             return (
               <Card key={index} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
@@ -130,11 +189,11 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                       <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                     </div>
-                    <Icon className={`w-8 h-8 ${stat.color}`} />
+                    {Icon && <Icon className={`w-8 h-8 ${stat.color}`} />}
                   </div>
                 </CardContent>
               </Card>
-            )
+            );
           })}
         </div>
 
@@ -157,21 +216,25 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentBookings.map((booking) => (
-                      <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h4 className="font-medium">{booking.service}</h4>
-                          <p className="text-sm text-gray-600">{booking.date}</p>
+                    {bookings.length > 0 ? (
+                      bookings.map((booking) => (
+                        <div key={booking._id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <h4 className="font-medium">{booking.service}</h4>
+                            <p className="text-sm text-gray-600">{booking.date}</p>
+                          </div>
+                          <div className="text-right">
+                            {getStatusBadge(booking.status)}
+                            <p className="text-sm font-medium mt-1">{(booking.amount || 0).toLocaleString('vi-VN')}đ</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          {getStatusBadge(booking.status)}
-                          <p className="text-sm font-medium mt-1">{booking.amount}</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-center text-gray-500">Chưa có đặt chỗ nào</p>
+                    )}
                   </div>
-                  <Button variant="outline" className="w-full mt-4">
-                    Xem tất cả
+                  <Button variant="outline" className="w-full mt-4" asChild>
+                    <Link href="/bookings">Xem tất cả</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -201,10 +264,12 @@ export default function DashboardPage() {
                       Tư vấn AI
                     </Link>
                   </Button>
-                  {userRole === "admin" && (
-                    <Button variant="outline" className="w-full justify-start">
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Xem báo cáo
+                  {user.role === 'admin' && (
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <Link href="/reports">
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        Xem báo cáo
+                      </Link>
                     </Button>
                   )}
                 </CardContent>
@@ -280,9 +345,24 @@ export default function DashboardPage() {
                 <CardDescription>Cập nhật thông tin tài khoản và cài đặt</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Tính năng đang được phát triển...</p>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium">Họ và tên</h4>
+                    <p className="text-gray-600">{user.name}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Email</h4>
+                    <p className="text-gray-600">{user.email}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Số điện thoại</h4>
+                    <p className="text-gray-600">{user.phone || 'Chưa cập nhật'}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Vai trò</h4>
+                    <p className="text-gray-600">{user.role}</p>
+                  </div>
+                  <Button variant="outline">Cập nhật hồ sơ</Button>
                 </div>
               </CardContent>
             </Card>
@@ -290,5 +370,5 @@ export default function DashboardPage() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

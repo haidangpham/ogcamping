@@ -1,29 +1,65 @@
-"use client"
+'use client';
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Tent, Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from "lucide-react"
-import Link from "next/link"
+import type React from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tent, Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    email: '',
+    password: '',
     remember: false,
-  })
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle login logic here
-    console.log("Login attempt:", formData)
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await axios.post('http://localhost:8080/users/login', {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const { token, user } = response.data;
+
+      // Store token and user data
+      if (formData.remember) {
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('user', JSON.stringify(user));
+      } else {
+        sessionStorage.setItem('authToken', token);
+        sessionStorage.setItem('user', JSON.stringify(user));
+      }
+
+      // Redirect based on user role
+      const role = user.role;
+      if (role === 'admin') {
+        router.push('/admin');
+      } else if (['staff', 'manager', 'guide'].includes(role)) {
+        router.push('/staff');
+      } else {
+        router.push('/dashboard'); // Default for customers or other roles
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Đăng nhập thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
@@ -39,10 +75,13 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 group">
             <div className="relative">
-              <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
+              <img
+                src="/ai-avatar.jpg"
+                className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300"
+              />
               <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
             </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            <span className="text-3xl font-bold text-green-600">OG Camping</span>
           </Link>
           <p className="text-gray-700 mt-3 text-lg">Chào mừng trở lại!</p>
         </div>
@@ -55,6 +94,11 @@ export default function LoginPage() {
             <CardDescription className="text-lg text-gray-600">Nhập thông tin để truy cập tài khoản</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {error && (
+              <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-semibold text-gray-700">
@@ -82,7 +126,7 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-green-600 transition-colors" />
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     className="pl-12 pr-12 h-12 border-gray-300 focus:border-green-500 focus:ring-green-500/20 transition-all"
                     value={formData.password}
@@ -122,9 +166,10 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 text-lg font-semibold"
+                disabled={isLoading}
               >
-                Đăng nhập
-                <ArrowRight className="w-5 h-5 ml-2" />
+                {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                {!isLoading && <ArrowRight className="w-5 h-5 ml-2" />}
               </Button>
             </form>
 
@@ -141,6 +186,7 @@ export default function LoginPage() {
               <Button
                 variant="outline"
                 className="h-12 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
+                disabled={isLoading}
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path
@@ -157,7 +203,7 @@ export default function LoginPage() {
                   />
                   <path
                     fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.30-4.53 6.16-4.53z"
                   />
                 </svg>
                 Google
@@ -165,6 +211,7 @@ export default function LoginPage() {
               <Button
                 variant="outline"
                 className="h-12 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
+                disabled={isLoading}
               >
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
@@ -175,7 +222,7 @@ export default function LoginPage() {
 
             <div className="text-center">
               <p className="text-gray-600">
-                Chưa có tài khoản?{" "}
+                Chưa có tài khoản?{' '}
                 <Link href="/register" className="text-green-600 hover:text-green-700 font-semibold transition-colors">
                   Đăng ký ngay
                 </Link>
@@ -186,11 +233,11 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>
-            Bằng việc đăng nhập, bạn đồng ý với{" "}
+            Bằng việc đăng nhập, bạn đồng ý với{' '}
             <Link href="/terms" className="text-green-600 hover:text-green-700 transition-colors">
               Điều khoản dịch vụ
-            </Link>{" "}
-            và{" "}
+            </Link>{' '}
+            và{' '}
             <Link href="/privacy" className="text-green-600 hover:text-green-700 transition-colors">
               Chính sách bảo mật
             </Link>
@@ -198,5 +245,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
