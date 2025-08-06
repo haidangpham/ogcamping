@@ -3,7 +3,6 @@
 import type React from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,11 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tent, Image as ImageIcon } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import Link from 'next/link';
+import { fetchUser, submitEquipment } from '@/app/api/admin';
 
 interface EquipmentFormData {
   name: string;
   category: string;
+  area: string;
   description: string;
   quantity_in_stock: number;
   image: File | null;
@@ -26,13 +28,17 @@ interface EquipmentFormData {
 
 interface User {
   _id: string;
-  role: string;
+  role: string | string[];
+  name?: string;
+  email?: string;
+  avatar?: string;
 }
 
 export default function NewEquipmentPage() {
   const [formData, setFormData] = useState<EquipmentFormData>({
     name: '',
     category: '',
+    area: '',
     description: '',
     quantity_in_stock: 0,
     image: null,
@@ -47,49 +53,118 @@ export default function NewEquipmentPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
+  // Check storage availability
+  const isStorageAvailable = (): boolean => {
+    try {
+      const testKey = '__test__';
+      localStorage.setItem(testKey, 'test');
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (e) {
+      console.error('localStorage is unavailable:', e);
+      return false;
+    }
+  };
 
+  useEffect(() => {
+    const loadUser = async () => {
       try {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        const userResponse = await axios.get('http://localhost:8080/users/me');
-        if (userResponse.data.role !== 'admin') {
+        if (!isStorageAvailable()) {
+          setError('Browser storage is disabled. Please enable localStorage to continue.');
           router.push('/login');
           return;
         }
-        setUser(userResponse.data);
-      } catch (err: any) {
-        if (err.response?.status === 401 || err.response?.status === 403) {
+
+        // Get token and userId from localStorage
+        const token = localStorage.getItem('authToken');
+        const userId = localStorage.getItem('userId');
+
+        if (!token || !userId) {
+          console.warn('Missing authToken or userId in localStorage');
+          setError('Authentication token or user ID not found. Please log in.');
+          router.push('/login');
+          return;
+        }
+
+        // Check if user data is stored in localStorage
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            const parsedUser: User = JSON.parse(storedUser);
+            const userRole = Array.isArray(parsedUser.role)
+              ? parsedUser.role[0]?.toUpperCase()
+              : typeof parsedUser.role === 'string'
+              ? parsedUser.role.toUpperCase()
+              : undefined;
+
+            if (userRole === 'ADMIN') {
+              console.log('User loaded from localStorage:', parsedUser);
+              setUser(parsedUser);
+              setIsLoading(false);
+              return;
+            }
+          } catch (parseError) {
+            console.error('Failed to parse stored user data:', parseError);
+            localStorage.removeItem('user');
+          }
+        }
+
+        // Fetch user data from API
+        console.log('Fetching user data for userId:', userId);
+        const userData = await fetchUser(token, Number(userId));
+        const userRole = Array.isArray(userData.role)
+          ? userData.role[0]?.toUpperCase()
+          : typeof userData.role === 'string'
+          ? userData.role.toUpperCase()
+          : undefined;
+
+        if (!userRole || userRole !== 'ADMIN') {
+          console.warn('User is not an admin or role is invalid:', userData.role);
           localStorage.removeItem('authToken');
+          localStorage.removeItem('userId');
           localStorage.removeItem('user');
-          sessionStorage.removeItem('authToken');
-          sessionStorage.removeItem('user');
+          setError('Unauthorized access. Admin role required.');
+          router.push('/login');
+          return;
+        }
+
+        // Store user data in localStorage
+        console.log('Storing user data in localStorage:', userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+      } catch (err: any) {
+        console.error('Error loading user:', {
+          status: err.status,
+          message: err.message,
+          data: err.data,
+          stack: err.stack,
+        });
+        if (err.status === 401 || err.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('user');
+          setError('Session expired or unauthorized. Please log in again.');
           router.push('/login');
         } else {
-          setError(err.response?.data?.error || 'Lỗi khi tải dữ liệu');
+          setError(err.message || 'Failed to load user data. Please try again.');
         }
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUser();
+    loadUser();
   }, [router]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        setSubmitError('Vui lòng chọn file JPEG hoặc PNG');
+        setSubmitError('Please select a JPEG or PNG file.');
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        setSubmitError('Kích thước file không được vượt quá 5MB');
+        setSubmitError('File size must not exceed 5MB.');
         return;
       }
       setFormData((prev) => ({ ...prev, image: file }));
@@ -104,36 +179,40 @@ export default function NewEquipmentPage() {
     setSubmitError(null);
 
     if (formData.available > formData.quantity_in_stock) {
-      setSubmitError('Số lượng có sẵn không thể lớn hơn số lượng tồn kho');
+      setSubmitError('Available quantity cannot exceed stock quantity.');
       return;
     }
 
     if (!formData.image) {
-      setSubmitError('Vui lòng chọn một hình ảnh');
+      setSubmitError('Please select an image.');
+      return;
+    }
+
+    if (!formData.area) {
+      setSubmitError('Please select an area.');
       return;
     }
 
     try {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('category', formData.category);
-      if (formData.description) formDataToSend.append('description', formData.description);
-      formDataToSend.append('quantity_in_stock', formData.quantity_in_stock.toString());
-      formDataToSend.append('available', formData.available.toString());
-      formDataToSend.append('price_per_day', formData.price_per_day.toString());
-      formDataToSend.append('status', formData.status);
-      if (formData.image) formDataToSend.append('image', formData.image);
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No authToken found during form submission');
+        setSubmitError('Authentication token not found. Please log in.');
+        router.push('/login');
+        return;
+      }
 
-      await axios.post('http://localhost:8080/gears', formDataToSend, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      router.push('/admin/dashboard?tab=equipment');
+      console.log('Submitting equipment with data:', formData);
+      await submitEquipment(token, formData);
+      router.push('/admin?tab=equipment');
     } catch (err: any) {
-      setSubmitError(err.response?.data?.error || 'Lỗi khi thêm thiết bị');
+      console.error('Error submitting equipment:', {
+        status: err.status,
+        message: err.message,
+        data: err.data,
+        stack: err.stack,
+      });
+      setSubmitError(err.message || 'Failed to add equipment. Please try again.');
     }
   };
 
@@ -142,41 +221,50 @@ export default function NewEquipmentPage() {
   };
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (!user) {
-    return null; // Redirect handled in useEffect
+  if (!user && !isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-600">
+        Unable to authenticate user. Please log in again.
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Tent className="h-8 w-8 text-green-600" />
             <span className="text-2xl font-bold text-green-800">OG Camping Admin</span>
           </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            onClick={() => router.push('/admin')}
-          >
-            Quay lại Dashboard
-          </Button>
+          <div className="flex items-center gap-4">
+            {user && (
+              <Avatar>
+                <AvatarImage src={user.avatar ?? '/admin-avatar.png'} />
+                <AvatarFallback>{user.name?.[0] ?? 'AD'}</AvatarFallback>
+              </Avatar>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              onClick={() => router.push('/admin?tab=equipment')}
+            >
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Thêm Thiết Bị Mới</h1>
-          <p className="text-gray-600">Nhập thông tin thiết bị để thêm vào kho</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New Equipment</h1>
+          <p className="text-gray-600">Enter equipment details to add to inventory</p>
         </div>
 
-        {/* Error Display */}
         {error && (
           <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">{error}</div>
         )}
@@ -184,57 +272,76 @@ export default function NewEquipmentPage() {
           <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">{submitError}</div>
         )}
 
-        {/* Form */}
         <Card className="border-0 shadow-lg max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>Thông Tin Thiết Bị</CardTitle>
+            <CardTitle>Equipment Details</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <Label htmlFor="name">Tên thiết bị *</Label>
+                <Label htmlFor="name">Equipment Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Ví dụ: Lều 4 người"
+                  placeholder="e.g., 4-Person Tent"
                   className="border-gray-300 focus:border-green-500"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="category">Danh mục *</Label>
+                <Label htmlFor="category">Category *</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => handleInputChange('category', value)}
                 >
                   <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Chọn danh mục" />
+                    <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Lều">Lều</SelectItem>
-                    <SelectItem value="Túi ngủ">Túi ngủ</SelectItem>
-                    <SelectItem value="Bếp">Bếp</SelectItem>
-                    <SelectItem value="Ghế">Ghế</SelectItem>
-                    <SelectItem value="Khác">Khác</SelectItem>
+                    <SelectItem value="Tent">Tent</SelectItem>
+                    <SelectItem value="Sleeping Bag">Sleeping Bag</SelectItem>
+                    <SelectItem value="Air Mattress">Air Mattress</SelectItem>
+                    <SelectItem value="Folding Table">Folding Table</SelectItem>
+                    <SelectItem value="Folding Chair">Folding Chair</SelectItem>
+                    <SelectItem value="Stove">Stove</SelectItem>
+                    <SelectItem value="Lantern">Lantern</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="description">Mô tả</Label>
+                <Label htmlFor="area">Area *</Label>
+                <Select
+                  value={formData.area}
+                  onValueChange={(value) => handleInputChange('area', value)}
+                >
+                  <SelectTrigger className="border-gray-300 focus:border-green-500">
+                    <SelectValue placeholder="Select area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Inside Tent">Inside Tent</SelectItem>
+                    <SelectItem value="Outside Tent">Outside Tent</SelectItem>
+                    <SelectItem value="Kitchen">Kitchen</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Mô tả chi tiết về thiết bị"
+                  placeholder="Detailed description of the equipment"
                   className="border-gray-300 focus:border-green-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="image">Hình ảnh *</Label>
+                <Label htmlFor="image">Image *</Label>
                 <div className="relative">
                   <Input
                     id="image"
@@ -248,7 +355,7 @@ export default function NewEquipmentPage() {
                 </div>
                 {imagePreview && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-600">Xem trước hình ảnh:</p>
+                    <p className="text-sm text-gray-600">Image Preview:</p>
                     <img
                       src={imagePreview}
                       alt="Image Preview"
@@ -259,13 +366,13 @@ export default function NewEquipmentPage() {
               </div>
 
               <div>
-                <Label htmlFor="price_per_day">Giá thuê (VND/ngày) *</Label>
+                <Label htmlFor="price_per_day">Rental Price (VND/day) *</Label>
                 <Input
                   id="price_per_day"
                   type="number"
                   value={formData.price_per_day}
                   onChange={(e) => handleInputChange('price_per_day', Number(e.target.value))}
-                  placeholder="Ví dụ: 100000"
+                  placeholder="e.g., 100000"
                   className="border-gray-300 focus:border-green-500"
                   min="0"
                   required
@@ -274,26 +381,26 @@ export default function NewEquipmentPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="quantity_in_stock">Số lượng tồn kho *</Label>
+                  <Label htmlFor="quantity_in_stock">Stock Quantity *</Label>
                   <Input
                     id="quantity_in_stock"
                     type="number"
                     value={formData.quantity_in_stock}
                     onChange={(e) => handleInputChange('quantity_in_stock', Number(e.target.value))}
-                    placeholder="Ví dụ: 10"
+                    placeholder="e.g., 10"
                     className="border-gray-300 focus:border-green-500"
                     min="0"
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="available">Số lượng có sẵn *</Label>
+                  <Label htmlFor="available">Available Quantity *</Label>
                   <Input
                     id="available"
                     type="number"
                     value={formData.available}
                     onChange={(e) => handleInputChange('available', Number(e.target.value))}
-                    placeholder="Ví dụ: 5"
+                    placeholder="e.g., 5"
                     className="border-gray-300 focus:border-green-500"
                     min="0"
                     required
@@ -302,7 +409,7 @@ export default function NewEquipmentPage() {
               </div>
 
               <div>
-                <Label htmlFor="status">Trạng thái *</Label>
+                <Label htmlFor="status">Status *</Label>
                 <Select
                   value={formData.status}
                   onValueChange={(value) =>
@@ -310,11 +417,11 @@ export default function NewEquipmentPage() {
                   }
                 >
                   <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Chọn trạng thái" />
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">Còn hàng</SelectItem>
-                    <SelectItem value="out_of_stock">Hết hàng</SelectItem>
+                    <SelectItem value="available">In Stock</SelectItem>
+                    <SelectItem value="out_of_stock">Out of Stock</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -324,7 +431,7 @@ export default function NewEquipmentPage() {
                   type="submit"
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white border-0"
                 >
-                  Thêm thiết bị
+                  Add Equipment
                 </Button>
                 <Button
                   type="button"
@@ -332,7 +439,7 @@ export default function NewEquipmentPage() {
                   className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
                   onClick={() => router.push('/admin?tab=equipment')}
                 >
-                  Hủy
+                  Cancel
                 </Button>
               </div>
             </form>

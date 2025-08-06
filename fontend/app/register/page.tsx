@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import axios from "axios"
+import { register } from '@/app/api/auth'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -49,13 +49,13 @@ export default function RegisterPage() {
     }
 
     try {
-     await axios.post("http://localhost:8080/users/register", {
+          await register({
         name: formData.fullName,
         email: formData.email,
         password: formData.password,
         phone: formData.phone,
         agreeMarketing: formData.agreeMarketing,
-      })
+      });
 
       // Redirect to login page on success
       router.push("/login")

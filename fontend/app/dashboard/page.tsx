@@ -67,7 +67,7 @@ export default function DashboardPage() {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
         // Fetch user data
-        const userResponse = await axios.get('http://localhost:8080/users/me');
+        const userResponse = await axios.get('http://localhost:8080/apis/v1/users');
         setUser(userResponse.data);
 
         // Fetch stats

@@ -2,25 +2,8 @@
 
 import type React from 'react';
 import { useState, useEffect } from 'react';
+import { fetchUser, fetchStats, fetchBookings, fetchStaff, fetchServices, fetchEquipment, fetchCustomers, createStaff } from '@/app/api/admin';
 import { useRouter, useSearchParams } from 'next/navigation';
-import axios from 'axios';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {
   Tent,
   Users,
@@ -42,15 +25,34 @@ import {
   MessageCircle,
   AlertTriangle,
   UserPlus,
+  Calendar,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { AxiosError } from 'axios';
 
 // Define interfaces for data structures
 interface Stat {
   title: string;
   value: string;
-  icon: keyof typeof iconMap;
+  icon: string;
   color: string;
   change: string;
 }
@@ -69,7 +71,7 @@ interface Staff {
   name: string;
   email: string;
   phone: string;
-  role: 'staff' | 'manager' | 'guide';
+  role: 'staff';
   department: string;
   joinDate: string;
   status: 'active' | 'inactive';
@@ -106,29 +108,30 @@ interface Customer {
 }
 
 interface User {
-  _id: string;
+  _id: string; // Changed from 'id' to '_id' to match app/api/admin.ts
   name: string;
   email: string;
-  role: string;
+  role: string | string[];
   avatar?: string;
 }
 
 const iconMap: { [key: string]: LucideIcon } = {
-  Users,
-  ShoppingCart,
-  DollarSign,
-  Star,
+  dollar: DollarSign,
+  calendar: Calendar,
+  users: Users,
+  shoppingCart: ShoppingCart,
+  star: Star,
 };
 
 export default function AdminDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [selectedPeriod, setSelectedPeriod] = useState('monthly');
   const [isCreateStaffOpen, setIsCreateStaffOpen] = useState(false);
   const [staffFormData, setStaffFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
     password: '',
-    role: 'staff' as 'staff' | 'manager' | 'guide',
+    role: 'staff' as 'staff',
     department: '',
   });
   const [stats, setStats] = useState<Stat[]>([]);
@@ -152,47 +155,85 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '1';
+      console.log('Token found:', token ? 'Yes' : 'No', token);
+      console.log('UserId found:', userId);
+
       if (!token) {
-        router.push('/login');
+        console.log('No token found, redirecting to /login');
+        setError('Không tìm thấy token xác thực');
+        router.push(`/login?error=${encodeURIComponent('Missing token')}`);
         return;
       }
 
       try {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Fetch user data
+        const userData = await fetchUser(token, Number(userId));
+        console.log('User response:', JSON.stringify(userData, null, 2));
 
-        const userResponse = await axios.get('http://localhost:8080/users/me');
-        if (userResponse.data.role !== 'admin') {
-          router.push('/login');
-          return;
-        }
-        setUser(userResponse.data);
-
-        const statsResponse = await axios.get(`http://localhost:8080/stats?period=${selectedPeriod}`);
-        setStats(statsResponse.data.stats);
-
-        const bookingsResponse = await axios.get('http://localhost:8080/bookings');
-        setBookings(bookingsResponse.data);
-
-        const staffResponse = await axios.get('http://localhost:8080/users?role=staff,manager,guide');
-        setStaff(staffResponse.data);
-
-        const servicesResponse = await axios.get('http://localhost:8080/packages');
-        setServices(servicesResponse.data);
-
-        const equipmentResponse = await axios.get('http://localhost:8080/gears');
-        setEquipment(equipmentResponse.data);
-
-        const customersResponse = await axios.get('http://localhost:8080/users/customers');
-        setCustomers(customersResponse.data);
-      } catch (err: any) {
-        if (err.response?.status === 401 || err.response?.status === 403) {
+        // Normalize role to string for comparison
+        const userRole = Array.isArray(userData.role) ? userData.role[0] : userData.role;
+        if (userRole.toUpperCase() !== 'ADMIN') {
+          console.log('User is not ADMIN, redirecting to /login. Role:', userRole);
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
+          localStorage.removeItem('userId');
           sessionStorage.removeItem('authToken');
           sessionStorage.removeItem('user');
-          router.push('/login');
+          sessionStorage.removeItem('userId');
+          router.push(`/login?error=${encodeURIComponent('User is not ADMIN')}`);
+          return;
+        }
+
+        // Store user data and userId
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('userId', userId);
+        setUser(userData);
+
+        // Fetch other data
+        const [statsData, bookingsData, staffData, servicesData, equipmentData, customersData] = await Promise.all([
+          fetchStats(token, selectedPeriod),
+          fetchBookings(token),
+          fetchStaff(token),
+          fetchServices(token),
+          fetchEquipment(token),
+          fetchCustomers(token),
+        ]);
+
+        console.log('Fetched data:', {
+          stats: statsData,
+          bookings: bookingsData,
+          staff: staffData,
+          services: servicesData,
+          equipment: equipmentData,
+          customers: customersData,
+        });
+
+        setStats(statsData);
+        setBookings(bookingsData);
+        setStaff(staffData);
+        setServices(servicesData);
+        setEquipment(equipmentData);
+        setCustomers(customersData);
+      } catch (error) {
+        const axiosError = error as AxiosError<{ error?: string }>;
+        const status = axiosError.response?.status || 500;
+        const data = axiosError.response?.data || {};
+        const message = axiosError.response?.data?.error || axiosError.message || 'Failed to fetch data';
+
+        console.error('Error fetching data:', { status, message, data });
+
+        if (status === 401 || status === 403) {
+          console.log('Unauthorized or forbidden, clearing tokens and redirecting to /login');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          localStorage.removeItem('userId');
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('user');
+          sessionStorage.removeItem('userId');
+          router.push(`/login?error=${encodeURIComponent('Unauthorized or forbidden')}`);
         } else {
-          setError(err.response?.data?.error || 'Lỗi khi tải dữ liệu');
+          setError(message);
         }
       } finally {
         setIsLoading(false);
@@ -207,23 +248,22 @@ export default function AdminDashboard() {
     setError(null);
     try {
       const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      const response = await axios.post(
-        'http://localhost:8080/users',
-        {
-          name: staffFormData.fullName,
-          email: staffFormData.email,
-          password_hash: staffFormData.password,
-          phone: staffFormData.phone,
-          role: staffFormData.role,
-          department: staffFormData.department,
-          joinDate: new Date().toISOString().split('T')[0],
-          status: 'active',
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      setStaff([...staff, response.data]);
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      const staffData = await createStaff(token, {
+        name: staffFormData.fullName,
+        email: staffFormData.email,
+        password_hash: staffFormData.password,
+        phone: staffFormData.phone,
+        role: staffFormData.role,
+        department: staffFormData.department,
+        joinDate: new Date().toISOString().split('T')[0],
+        status: 'active',
+      });
+
+      setStaff([...staff, staffData]);
       setIsCreateStaffOpen(false);
       setStaffFormData({
         fullName: '',
@@ -233,16 +273,21 @@ export default function AdminDashboard() {
         role: 'staff',
         department: '',
       });
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Lỗi khi tạo nhân viên');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      const message = axiosError.response?.data?.error || axiosError.message || 'Failed to create staff';
+      setError(message);
     }
   };
 
   const handleLogout = () => {
+    console.log('Logging out, clearing tokens');
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('userId');
     sessionStorage.removeItem('authToken');
     sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userId');
     router.push('/login');
   };
 
@@ -307,8 +352,8 @@ export default function AdminDashboard() {
               <Settings className="w-4 h-4" />
             </Button>
             <Avatar>
-              <AvatarImage src={user.avatar || '/admin-avatar.png'} />
-              <AvatarFallback>{user.name?.[0] || 'AD'}</AvatarFallback>
+              <AvatarImage src={user.avatar ?? '/images/default-avatar.png'} />
+              <AvatarFallback>{user.name?.[0] ?? 'AD'}</AvatarFallback>
             </Avatar>
             <Button
               variant="ghost"
@@ -334,7 +379,7 @@ export default function AdminDashboard() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => {
-            const Icon = iconMap[stat.icon];
+            const Icon = iconMap[stat.icon] || Star;
             return (
               <Card key={index} className="hover:shadow-lg transition-shadow border-0">
                 <CardContent className="p-6">
@@ -355,8 +400,9 @@ export default function AdminDashboard() {
               <SelectValue placeholder="Thời gian" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="month">Tháng này</SelectItem>
-              <SelectItem value="week">Tuần này</SelectItem>
+              <SelectItem value="monthly">Tháng này</SelectItem>
+              <SelectItem value="weekly">Tuần này</SelectItem>
+              <SelectItem value="daily">Hôm nay</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -537,7 +583,7 @@ export default function AdminDashboard() {
                               onValueChange={(value) =>
                                 setStaffFormData((prev) => ({
                                   ...prev,
-                                  role: value as 'staff' | 'manager' | 'guide',
+                                  role: value as 'staff',
                                 }))
                               }
                             >
@@ -724,16 +770,12 @@ export default function AdminDashboard() {
                         <TableCell>
                           <Badge
                             className={
-                              member.role === 'manager'
+                              member.role === 'staff'
                                 ? 'bg-purple-100 text-purple-800 border-0'
                                 : 'bg-blue-100 text-blue-800 border-0'
                             }
                           >
-                            {member.role === 'manager'
-                              ? 'Quản lý'
-                              : member.role === 'guide'
-                              ? 'Hướng dẫn viên'
-                              : 'Nhân viên'}
+                            {member.role === 'staff' ? 'Nhân viên' : member.role}
                           </Badge>
                         </TableCell>
                         <TableCell>{member.department}</TableCell>
@@ -957,7 +999,15 @@ export default function AdminDashboard() {
                     <CardDescription>Kho thiết bị cho thuê</CardDescription>
                   </div>
                   <Button className="bg-green-600 hover:bg-green-700 text-white border-0" asChild>
-                    <Link href="/admin/equipment/new">
+                    <Link
+                      href={{
+                        pathname: '/admin/equipment/new',
+                        query: {
+                          token: localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '',
+                          userId: localStorage.getItem('userId') || sessionStorage.getItem('userId') || user?._id || '1',
+                        },
+                      }}
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Thêm thiết bị
                     </Link>
@@ -1073,9 +1123,15 @@ export default function AdminDashboard() {
                         <TableCell>{customer.email}</TableCell>
                         <TableCell>{customer.phone}</TableCell>
                         <TableCell>{customer.bookings}</TableCell>
-                        <TableCell>{customer.spent.toLocaleString('vi-VN')}đ</TableCell>
                         <TableCell>
-                          {new Date(customer.created_at).toLocaleDateString('vi-VN')}
+                          {typeof customer.spent === 'number'
+                            ? `${customer.spent.toLocaleString('vi-VN')}đ`
+                            : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {customer.created_at && !isNaN(new Date(customer.created_at).getTime())
+                            ? new Date(customer.created_at).toLocaleDateString('vi-VN')
+                            : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">

@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { login } from '@/app/api/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,43 +23,53 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  setIsLoading(true);
 
-    try {
-      const response = await axios.post('http://localhost:8080/users/login', {
-        email: formData.email,
-        password: formData.password,
-      });
+  try {
+    const response = await login({
+      email: formData.email,
+      password: formData.password,
+    });
 
-      const { token, user } = response.data;
-
-      // Store token and user data
-      if (formData.remember) {
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('user', JSON.stringify(user));
-      } else {
-        sessionStorage.setItem('authToken', token);
-        sessionStorage.setItem('user', JSON.stringify(user));
-      }
-
-      // Redirect based on user role
-      const role = user.role;
-      if (role === 'admin') {
-        router.push('/admin');
-      } else if (['staff', 'manager', 'guide'].includes(role)) {
-        router.push('/staff');
-      } else {
-        router.push('/dashboard'); // Default for customers or other roles
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Đăng nhập thất bại. Vui lòng thử lại.');
-    } finally {
-      setIsLoading(false);
+    if (!response?.token || !response?.user?.email) {
+      console.log('Login response:', response);
+      throw new Error('Dữ liệu phản hồi không hợp lệ từ máy chủ.');
     }
-  };
+
+    const { token, user } = response;
+
+    // ✅ Đảm bảo luôn có role hợp lệ
+    const role = (user.role || 'CUSTOMER').toString().toUpperCase();
+
+    const fullUser = { ...user, role };
+    const storage = formData.remember ? localStorage : sessionStorage;
+
+    storage.setItem('authToken', token);
+    storage.setItem('user', JSON.stringify(fullUser));
+
+    if (role === 'ADMIN') {
+      router.push('/admin');
+    } else if (role === 'STAFF') {
+      router.push('/staff');
+    } else {
+      router.push('/dashboard');
+    }
+  } catch (err: any) {
+    console.error('Lỗi đăng nhập:', err);
+    setError(
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      'Đăng nhập thất bại. Vui lòng thử lại.'
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
