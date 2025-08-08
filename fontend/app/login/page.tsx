@@ -51,11 +51,11 @@ export default function LoginPage() {
     storage.setItem('user', JSON.stringify(fullUser));
 
     if (role === 'ADMIN') {
-      router.push('/admin');
+      router.push('/');
     } else if (role === 'STAFF') {
-      router.push('/staff');
+      router.push('/');
     } else {
-      router.push('/dashboard');
+      router.push('/');
     }
   } catch (err: any) {
     console.error('Lỗi đăng nhập:', err);

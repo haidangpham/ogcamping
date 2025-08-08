@@ -1,18 +1,53 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Tent, Package, Search, Filter, ShoppingCart, Star, CheckCircle, Zap, Sparkles } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tent, Package, Search, Filter, ShoppingCart, Star, CheckCircle, Zap, Sparkles, Settings } from "lucide-react"
 import Link from "next/link"
+import { login } from "../api/auth" // Import from auth.ts
 
 export default function EquipmentPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
   const [selectedItems, setSelectedItems] = useState<any[]>([])
   const [priceRange, setPriceRange] = useState([0, 500000])
+  const router = useRouter()
+
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    const userData = localStorage.getItem('user')
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+  }
+
+  // Handle dashboard navigation based on role
+  const handleDashboardNavigation = () => {
+    if (user?.role === 'ADMIN') {
+      router.push('/admin')
+    } else if (user?.role === 'STAFF') {
+      router.push('/staff')
+    } else {
+      router.push('/dashboard')
+    }
+  }
 
   const equipment = [
     {
@@ -154,7 +189,7 @@ export default function EquipmentPage() {
     setSelectedItems((prev) =>
       prev
         .map((item) => {
-          if (item.id === id) {
+          if (item.id === item.id) {
             const newQuantity = item.quantity + change
             if (newQuantity <= 0) return null
             return { ...item, quantity: newQuantity }
@@ -174,326 +209,213 @@ export default function EquipmentPage() {
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-           <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="relative">
               <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
               <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
             </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            <span className="text-3xl font-bold text-green-600">OG Camping</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link
-              href="/services"
-              className="text-gray-600 hover:text-green-600 transition-all duration-300 font-medium"
-            >
+          <nav className="hidden md:flex items-center gap-6">
+            <Link href="/services" className="text-gray-600 hover:text-green-600 transition-colors">
               Dịch vụ
             </Link>
-            <Link href="/equipment" className="text-green-600 font-semibold relative">
+            <Link href="/equipment" className="text-green-600 font-medium">
               Thuê thiết bị
-              <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-green-600 rounded-full"></div>
             </Link>
-            <Link
-              href="/ai-consultant"
-              className="text-gray-600 hover:text-green-600 transition-all duration-300 font-medium"
-            >
+            <Link href="/ai-consultant" className="text-gray-600 hover:text-green-600 transition-colors">
               Tư vấn AI
             </Link>
-            <Link href="/about" className="text-gray-600 hover:text-green-600 transition-all duration-300 font-medium">
+            <Link href="/about" className="text-gray-600 hover:text-green-600 transition-colors">
               Về chúng tôi
             </Link>
-            <Link
-              href="/contact"
-              className="text-gray-600 hover:text-green-600 transition-all duration-300 font-medium"
-            >
+            <Link href="/contact" className="text-gray-600 hover:text-green-600 transition-colors">
               Liên hệ
             </Link>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              asChild
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
-            >
-              <Link href="/login">Đăng nhập</Link>
-            </Button>
-            <Button
-              asChild
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all"
-            >
-              <Link href="/register">Đăng ký</Link>
-            </Button>
+          <div className="flex items-center gap-2">
+            {isLoggedIn ? (
+              <>
+                <span className="text-gray-800 font-medium">{user?.name}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="h-5 w-5 text-gray-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDashboardNavigation}>
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link href="/login">Đăng nhập</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/register">Đăng ký</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
-      
+
       <div className="container mx-auto px-4 py-8">
-        {/* Page Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 mb-6">
-            <Package className="w-10 h-10 text-green-600" />
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text ">
-              Thuê thiết bị cắm trại
-            </h1>
-          </div>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Khám phá bộ sưu tập thiết bị cắm trại chất lượng cao với giá thuê hợp lý. Tất cả đều được kiểm tra kỹ lưỡng
-            và bảo trì định kỳ.
-          </p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Thuê thiết bị cắm trại</h1>
+          <p className="text-gray-600 text-lg">Chọn thiết bị chất lượng cao cho chuyến đi của bạn</p>
         </div>
 
-        {/* Filters */}
-        <Card className="mb-8 border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Filter className="w-5 h-5 text-green-600" />
-              Bộ lọc tìm kiếm
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-4 gap-6">
-              <div>
-                <label className="text-sm font-semibold mb-3 block text-gray-700">Tìm kiếm</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Tên thiết bị..."
-                    className="pl-10 border-gray-300 focus:border-green-500 focus:ring-green-500/20"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-3 block text-gray-700">Danh mục</label>
-                <Select>
-                  <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Chọn danh mục" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category.toLowerCase()}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-3 block text-gray-700">Tình trạng</label>
-                <Select>
-                  <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Tình trạng" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Còn hàng</SelectItem>
-                    <SelectItem value="limited">Sắp hết</SelectItem>
-                    <SelectItem value="popular">Phổ biến</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold mb-3 block text-gray-700">Sắp xếp</label>
-                <Select>
-                  <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Sắp xếp theo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="popular">Phổ biến nhất</SelectItem>
-                    <SelectItem value="price-low">Giá thấp đến cao</SelectItem>
-                    <SelectItem value="price-high">Giá cao đến thấp</SelectItem>
-                    <SelectItem value="rating">Đánh giá cao nhất</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label className="text-sm font-semibold mb-3 block text-gray-700">Khoảng giá (VNĐ/ngày)</label>
-              <div className="px-3">
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  max={500000}
-                  min={0}
-                  step={10000}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-gray-500 mt-2">
-                  <span>{priceRange[0].toLocaleString("vi-VN")}đ</span>
-                  <span>{priceRange[1].toLocaleString("vi-VN")}đ</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg">
-                Áp dụng bộ lọc
-              </Button>
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-                Xóa bộ lọc
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="grid lg:grid-cols-4 gap-8">
-          {/* Equipment Grid */}
           <div className="lg:col-span-3">
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {equipment.map((item) => (
-                <Card
-                  key={item.id}
-                  className="group overflow-hidden hover:shadow-2xl transition-all duration-500 border-0 bg-white/80 backdrop-blur-sm"
-                >
-                  {/* Image with overlay */}
-                  <div className="relative h-48 overflow-hidden">
-                    <div
-                      className={`absolute inset-0 transition-transform duration-500 group-hover:scale-110 ${
-                        item.image === "tent-2p"
-                          ? "bg-gradient-to-br from-green-400 via-green-500 to-emerald-600"
-                          : item.image === "tent-4p"
-                            ? "bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600"
-                            : item.image === "stove"
-                              ? "bg-gradient-to-br from-orange-400 via-red-500 to-pink-600"
-                              : item.image === "cookset"
-                                ? "bg-gradient-to-br from-purple-400 via-purple-500 to-indigo-600"
-                                : item.image === "flashlight"
-                                  ? "bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600"
-                                  : item.image === "lantern"
-                                    ? "bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-600"
-                                    : item.image === "sleeping-summer"
-                                      ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600"
-                                      : "bg-gradient-to-br from-indigo-400 via-purple-500 to-pink-600"
-                      }`}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="w-5 h-5" />
+                  Bộ lọc tìm kiếm
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tìm kiếm</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input className="pl-10" placeholder="Tìm theo tên, loại thiết bị..." />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Danh mục</label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn danh mục" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category.toLowerCase()}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Giá (VND/ngày)</label>
+                    <Slider
+                      defaultValue={[0, 500000]}
+                      max={500000}
+                      step={10000}
+                      value={priceRange}
+                      onValueChange={setPriceRange}
                     />
+                    <div className="flex justify-between text-sm text-gray-600 mt-2">
+                      <span>{priceRange[0].toLocaleString("vi-VN")}</span>
+                      <span>{priceRange[1].toLocaleString("vi-VN")}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-                    {/* Badges */}
-                    <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {equipment.map((item) => (
+                <Card key={item.id} className="hover:shadow-lg transition-shadow">
+                  <div className="h-48 bg-gradient-to-br from-green-400 to-green-600 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-black/20"></div>
+                    <Package className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />
+                    <div className="absolute bottom-4 left-4 text-white">
                       {item.isPopular && (
-                        <Badge className="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold">Phổ biến</Badge>
+                        <Badge className="mb-2 bg-red-500 hover:bg-red-600 text-white">Phổ biến</Badge>
                       )}
                       {item.isNew && (
-                        <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold">Mới</Badge>
+                        <Badge className="mb-2 bg-blue-500 hover:bg-blue-600 text-white">Mới</Badge>
                       )}
                       {item.isEco && (
-                        <Badge className="bg-green-500 hover:bg-green-600 text-white text-xs font-semibold">Eco</Badge>
+                        <Badge className="mb-2 bg-green-500 hover:bg-green-600 text-white">Thân thiện môi trường</Badge>
                       )}
                       {item.isPremium && (
-                        <Badge className="bg-purple-500 hover:bg-purple-600 text-white text-xs font-semibold">
-                          Premium
-                        </Badge>
+                        <Badge className="mb-2 bg-purple-500 hover:bg-purple-600 text-white">Cao cấp</Badge>
                       )}
-                    </div>
-
-                    {/* Availability */}
-                    <div className="absolute top-3 right-3">
-                      <Badge
-                        className={`${item.available > 5 ? "bg-green-500" : item.available > 0 ? "bg-yellow-500" : "bg-red-500"} text-white font-semibold`}
-                      >
-                        {item.available > 0 ? `Còn ${item.available}` : "Hết hàng"}
-                      </Badge>
-                    </div>
-
-                    {/* Icon */}
-                    <div className="absolute bottom-3 right-3 opacity-80">
-                      <Package className="w-8 h-8 text-white" />
-                    </div>
-
-                    {/* Title overlay */}
-                    <div className="absolute bottom-3 left-3 text-white">
-                      <h3 className="text-lg font-bold mb-1 line-clamp-1">{item.name}</h3>
+                      <h3 className="text-lg font-bold">{item.name}</h3>
                       <p className="text-sm opacity-90">{item.category}</p>
                     </div>
                   </div>
-
-                  {/* Content */}
-                  <CardContent className="p-6">
-                    {/* Rating and Reviews */}
-                    <div className="flex items-center justify-between mb-3">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{item.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                        <span className="font-semibold text-gray-900">{item.rating}</span>
+                        <span className="font-semibold">{item.rating}</span>
                         <span className="text-sm text-gray-500">({item.reviews})</span>
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-green-600">
-                            {item.price.toLocaleString("vi-VN")}đ
-                          </span>
-                          {item.originalPrice > item.price && (
-                            <span className="text-sm text-gray-400 line-through">
-                              {item.originalPrice.toLocaleString("vi-VN")}đ
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-gray-500">/ngày</span>
+                      <Badge variant="secondary">
+                        Còn {item.available}/{item.total}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">{item.price.toLocaleString("vi-VN")}đ</p>
+                        <p className="text-sm text-gray-500 line-through">
+                          {item.originalPrice.toLocaleString("vi-VN")}đ
+                        </p>
                       </div>
                     </div>
-
-                    {/* Features */}
-                    <div className="flex flex-wrap gap-1 mb-4">
+                    <ul className="text-sm text-gray-600 mb-4 space-y-1">
                       {item.features.map((feature, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs bg-gray-100 text-gray-700 border-0">
+                        <li key={index} className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500" />
                           {feature}
-                        </Badge>
+                        </li>
                       ))}
-                    </div>
-
-                    {/* Description */}
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{item.description}</p>
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                      >
-                        Chi tiết
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => addToCart(item)}
-                        disabled={item.available === 0}
-                        className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0"
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-1" />
-                        {item.available === 0 ? "Hết hàng" : "Thêm vào giỏ"}
-                      </Button>
-                    </div>
+                    </ul>
+                    <Button
+                      className="w-full"
+                      onClick={() => addToCart(item)}
+                      disabled={item.available === 0}
+                    >
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      {item.available === 0 ? "Hết hàng" : "Thêm vào giỏ"}
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
           </div>
 
-          {/* Cart Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-24 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <Card className="sticky top-24">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-green-600" />
-                  Giỏ thuê ({selectedItems.length})
+                  <ShoppingCart className="w-5 h-5" />
+                  Giỏ hàng
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {selectedItems.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>Chưa có thiết bị nào</p>
+                  <div className="text-center text-gray-500">
+                    <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Giỏ hàng trống</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {selectedItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg bg-white/50">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm line-clamp-1">{item.name}</h4>
-                          <p className="text-xs text-gray-600">{item.price.toLocaleString("vi-VN")}đ/ngày</p>
+                      <div key={item.id} className="flex items-center justify-between border-b pb-2">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {item.price.toLocaleString("vi-VN")}đ x {item.quantity}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
@@ -502,12 +424,13 @@ export default function EquipmentPage() {
                           >
                             -
                           </Button>
-                          <span className="w-8 text-center text-sm">{item.quantity}</span>
+                          <span className="text-sm w-8 text-center">{item.quantity}</span>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => updateQuantity(item.id, 1)}
                             className="h-6 w-6 p-0"
+                            disabled={item.quantity >= item.available}
                           >
                             +
                           </Button>
@@ -553,12 +476,12 @@ export default function EquipmentPage() {
 
         {/* AI Consultant CTA */}
         <Card className="mt-12 bg-gradient-to-r from-gray-800 via-gray-900 to-black text-black border-0 shadow-2xl">
-        <CardContent className="text-center py-12">
-        <Zap className="w-16 h-16 mx-auto mb-6 text-lime-300 drop-shadow-lg" />
-        <h3 className="text-3xl font-bold mb-4 drop-shadow-md">Không biết chọn thiết bị nào?</h3>
-        <p className="text-xl text-lime-300 mb-8 max-w-2xl mx-auto leading-relaxed drop-shadow">
-          AI tư vấn thông minh sẽ giúp bạn chọn thiết bị phù hợp nhất dựa trên loại hình cắm trại và ngân sách
-        </p>
+          <CardContent className="text-center py-12">
+            <Zap className="w-16 h-16 mx-auto mb-6 text-lime-300 drop-shadow-lg" />
+            <h3 className="text-3xl font-bold mb-4 drop-shadow-md">Không biết chọn thiết bị nào?</h3>
+            <p className="text-xl text-lime-300 mb-8 max-w-2xl mx-auto leading-relaxed drop-shadow">
+              AI tư vấn thông minh sẽ giúp bạn chọn thiết bị phù hợp nhất dựa trên loại hình cắm trại và ngân sách
+            </p>
             <Button
               size="lg"
               variant="secondary"

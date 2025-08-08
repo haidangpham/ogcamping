@@ -1,10 +1,49 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tent, Mountain, Users, Star, MessageCircle, Calendar, Shield, Zap, ArrowRight, Sparkles } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tent, Mountain, Users, Star, MessageCircle, Calendar, Shield, Zap, ArrowRight, Sparkles, Settings } from "lucide-react"
 import Link from "next/link"
+import { login } from "../app/api/auth" // Import from auth.ts
 
 export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
+  const router = useRouter()
+
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    const userData = localStorage.getItem('user')
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+  }
+
+  // Handle dashboard navigation based on role
+  const handleDashboardNavigation = () => {
+    if (user?.role === 'ADMIN') {
+      router.push('/admin')
+    } else if (user?.role === 'STAFF') {
+      router.push('/staff')
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
       {/* Header */}
@@ -12,13 +51,12 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 group">
             <Link href="/" className="flex items-center gap-3">
-            <div className="relative">
-              <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
-              <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
-            </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
-          </Link>
-           
+              <div className="relative">
+                <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
+              </div>
+              <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            </Link>
           </div>
           <nav className="hidden md:flex items-center gap-8">
             <Link
@@ -51,19 +89,42 @@ export default function HomePage() {
             </Link>
           </nav>
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              asChild
-              className="border-gray-300 text-gray-800 hover:bg-gray-50 hover:border-gray-400 transition-all"
-            >
-              <Link href="/login">Đăng nhập</Link>
-            </Button>
-            <Button
-              asChild
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all"
-            >
-              <Link href="/register">Đăng ký</Link>
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <span className="text-gray-800 font-medium">{user?.name}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="h-5 w-5 text-gray-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDashboardNavigation}>
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="border-gray-300 text-gray-800 hover:bg-gray-50 hover:border-gray-400 transition-all"
+                >
+                  <Link href="/login">Đăng nhập</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Link href="/register">Đăng ký</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -354,10 +415,10 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials */}
-     <section className="py-20 px-4 bg-green-500/50 backdrop-blur-sm">
+      <section className="py-20 px-4 bg-green-500/50 backdrop-blur-sm">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-200 to-gray-100 bg-clip-text mb-6">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-200 to-gray-100 bg-clip-text mb-6">
               Khách hàng nói gì về chúng tôi
             </h2>
           </div>

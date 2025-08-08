@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MessageCircle, Send, Bot, User, Tent, Sparkles, Zap } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MessageCircle, Send, Bot, User, Tent, Sparkles, Zap, Settings } from "lucide-react"
 import Link from "next/link"
+import { login } from "../api/auth" // Import from auth.ts
 
 interface Message {
   id: number
@@ -17,8 +20,40 @@ interface Message {
 }
 
 export default function AIConsultantPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState("")
+  const router = useRouter()
+
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    const userData = localStorage.getItem('user')
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+  }
+
+  // Handle dashboard navigation based on role
+  const handleDashboardNavigation = () => {
+    if (user?.role === 'ADMIN') {
+      router.push('/admin')
+    } else if (user?.role === 'STAFF') {
+      router.push('/staff')
+    } else {
+      router.push('/dashboard')
+    }
+  }
 
   // Load chat history from localStorage on component mount
   useEffect(() => {
@@ -144,12 +179,12 @@ Gói này có nhiều hoạt động an toàn cho trẻ em và không gian rộn
       {/* Header */}
       <header className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-           <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="relative">
               <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
               <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
             </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            <span className="text-3xl font-bold text-green-600">OG Camping</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/services" className="text-gray-600 hover:text-green-600 transition-colors">
@@ -169,16 +204,39 @@ Gói này có nhiều hoạt động an toàn cho trẻ em và không gian rộn
             </Link>
           </nav>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              asChild
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-            >
-              <Link href="/login">Đăng nhập</Link>
-            </Button>
-            <Button asChild className="bg-green-600 hover:bg-green-700 text-white border-0">
-              <Link href="/register">Đăng ký</Link>
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <span className="text-gray-800 font-medium">{user?.name}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="h-5 w-5 text-gray-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDashboardNavigation}>
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                >
+                  <Link href="/login">Đăng nhập</Link>
+                </Button>
+                <Button asChild className="bg-green-600 hover:bg-green-700 text-white border-0">
+                  <Link href="/register">Đăng ký</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -188,11 +246,11 @@ Gói này có nhiều hoạt động an toàn cho trẻ em và không gian rộn
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Avatar>
-                      <AvatarImage src="/ai-avatar.jpg" />
-                      <AvatarFallback className="bg-green-700 text-black">
-                        <Bot className="w-5 h-5" />
-                      </AvatarFallback>
-                    </Avatar>
+              <AvatarImage src="/ai-avatar.jpg" />
+              <AvatarFallback className="bg-green-700 text-black">
+                <Bot className="w-5 h-5" />
+              </AvatarFallback>
+            </Avatar>
             <h1 className="text-4xl font-bold text-gray-900">AI Tư vấn thông minh</h1>
             <Sparkles className="w-8 h-8 text-yellow-500" />
           </div>
@@ -256,7 +314,7 @@ Gói này có nhiều hoạt động an toàn cho trẻ em và không gian rộn
                     <Avatar className="w-8 h-8 flex-shrink-0">
                       {message.type === "bot" ? (
                         <AvatarFallback className="bg-green-700 text-black">
-                           <img src="/ai-avatar.jpg" className="h-auto w-auto rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                          <img src="/ai-avatar.jpg" className="h-auto w-auto rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
                         </AvatarFallback>
                       ) : (
                         <AvatarFallback className="bg-blue-100 text-blue-600">
@@ -399,7 +457,7 @@ Gói này có nhiều hoạt động an toàn cho trẻ em và không gian rộn
 
         {/* CTA Section */}
         <Card className="mt-12 bg-gradient-to-r from-green-600 to-green-700 text-black border-1 shadow-2xl">
-        <CardContent className="text-center py-12">
+          <CardContent className="text-center py-12">
             <h3 className="text-2xl font-bold mb-4">Hài lòng với tư vấn của AI?</h3>
             <p className="text-green-700 mb-6">Tiến hành đặt dịch vụ ngay để nhận ưu đãi đặc biệt</p>
             <div className="flex gap-4 justify-center">

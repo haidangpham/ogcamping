@@ -1,13 +1,52 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Tent, Mountain, Users, Calendar, MapPin, Star, Filter, Search, MessageCircle, CheckCircle, Sparkles } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tent, Mountain, Users, Calendar, MapPin, Star, Filter, Search, MessageCircle, CheckCircle, Sparkles, Settings } from "lucide-react"
 import Link from "next/link"
+import { login } from "../api/auth" // Import from auth.ts
 
 export default function ServicesPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
+  const router = useRouter()
+
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    const userData = localStorage.getItem('user')
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+  }
+
+  // Handle dashboard navigation based on role
+  const handleDashboardNavigation = () => {
+    if (user?.role === 'ADMIN') {
+      router.push('/admin')
+    } else if (user?.role === 'STAFF') {
+      router.push('/staff')
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
   const services = [
     {
       id: 1,
@@ -101,12 +140,12 @@ export default function ServicesPage() {
       {/* Header */}
       <header className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-           <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="relative">
               <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
               <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
             </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            <span className="text-3xl font-bold text-green-600">OG Camping</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/services" className="text-green-600 font-medium">
@@ -126,12 +165,35 @@ export default function ServicesPage() {
             </Link>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/login">Đăng nhập</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/register">Đăng ký</Link>
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <span className="text-gray-800 font-medium">{user?.name}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="h-5 w-5 text-gray-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDashboardNavigation}>
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link href="/login">Đăng nhập</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/register">Đăng ký</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -156,27 +218,27 @@ export default function ServicesPage() {
               <div>
                 <label className="text-sm font-medium mb-2 block">Tìm kiếm</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input placeholder="Tên địa điểm..." className="pl-10" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input className="pl-10" placeholder="Tìm theo tên, địa điểm..." />
                 </div>
               </div>
-
               <div>
-                <label className="text-sm font-medium mb-2 block">Loại địa điểm</label>
+                <label className="text-sm font-medium mb-2 block">Địa điểm</label>
                 <Select>
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn loại" />
+                    <SelectValue placeholder="Chọn địa điểm" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="mountain">Núi</SelectItem>
-                    <SelectItem value="beach">Biển</SelectItem>
-                    <SelectItem value="forest">Rừng</SelectItem>
-                    <SelectItem value="desert">Sa mạc</SelectItem>
+                    <SelectItem value="sapa">Sapa</SelectItem>
+                    <SelectItem value="phuquoc">Phú Quốc</SelectItem>
+                    <SelectItem value="dalat">Đà Lạt</SelectItem>
+                    <SelectItem value="cattien">Cát Tiên</SelectItem>
+                    <SelectItem value="bali">Bali</SelectItem>
+                    <SelectItem value="muine">Mũi Né</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
                 <label className="text-sm font-medium mb-2 block">Số người</label>
                 <Select>
@@ -184,237 +246,134 @@ export default function ServicesPage() {
                     <SelectValue placeholder="Chọn số người" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1-2">1-2 người</SelectItem>
-                    <SelectItem value="3-4">3-4 người</SelectItem>
-                    <SelectItem value="5-6">5-6 người</SelectItem>
-                    <SelectItem value="7+">7+ người</SelectItem>
+                    <SelectItem value="2-4">2-4 người</SelectItem>
+                    <SelectItem value="4-6">4-6 người</SelectItem>
+                    <SelectItem value="6-10">6-10 người</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
-                <label className="text-sm font-medium mb-2 block">Thời gian</label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn thời gian" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1-2">1-2 ngày</SelectItem>
-                    <SelectItem value="3-4">3-4 ngày</SelectItem>
-                    <SelectItem value="5+">5+ ngày</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <label className="text-sm font-medium mb-2 block">Khoảng giá (VNĐ)</label>
-              <div className="px-2">
-                <Slider
-                  defaultValue={[1000000, 5000000]}
-                  max={5000000}
-                  min={1000000}
-                  step={100000}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-gray-500 mt-1">
-                  <span>1.000.000đ</span>
-                  <span>5.000.000đ</span>
+                <label className="text-sm font-medium mb-2 block">Giá (VND)</label>
+                <Slider defaultValue={[0, 5000000]} max={5000000} step={100000} />
+                <div className="flex justify-between text-sm text-gray-600 mt-2">
+                  <span>0</span>
+                  <span>5,000,000</span>
                 </div>
               </div>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              <Button>Áp dụng bộ lọc</Button>
-              <Button variant="outline">Xóa bộ lọc</Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Services Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Services List */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service) => (
-            <Card
-              key={service.id}
-              className="group overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white"
-            >
-              {/* Image with overlay */}
-              <div className="relative h-56 overflow-hidden">
-                <div
-                  className={`absolute inset-0 transition-transform duration-300 group-hover:scale-110 ${
-                    service.image === "mountain"
-                      ? "bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600"
-                      : service.image === "beach"
-                        ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600"
-                        : service.image === "family"
-                          ? "bg-gradient-to-br from-orange-400 via-amber-500 to-yellow-600"
-                          : service.image === "forest"
-                            ? "bg-gradient-to-br from-green-400 via-emerald-500 to-green-600"
-                            : service.image === "waterfall"
-                              ? "bg-gradient-to-br from-blue-400 via-cyan-500 to-teal-600"
-                              : "bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500"
-                  }`}
-                />
-
-                {/* Overlay gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-                {/* Tags */}
-                <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                  {service.tags.map((tag, index) => (
-                    <Badge
-                      key={index}
-                      className="bg-white/90 text-gray-800 hover:bg-white text-xs font-medium backdrop-blur-sm"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-
-                {/* Availability */}
-                <div className="absolute top-4 right-4">
-                  <Badge
-                    className={`${
-                      service.availability === "Hết chỗ"
-                        ? "bg-red-500 hover:bg-red-600"
-                        : "bg-green-500 hover:bg-green-600"
-                    } text-white font-medium`}
-                  >
-                    {service.availability}
-                  </Badge>
-                </div>
-
-                {/* Icon */}
-                <div className="absolute bottom-4 right-4 opacity-80">
-                  {service.image === "mountain" && <Mountain className="w-8 h-8 text-white" />}
-                  {service.image === "beach" && <Tent className="w-8 h-8 text-white" />}
-                  {service.image === "family" && <Users className="w-8 h-8 text-white" />}
-                  {service.image === "forest" && <Mountain className="w-8 h-8 text-white" />}
-                  {service.image === "waterfall" && <Mountain className="w-8 h-8 text-white" />}
-                  {service.image === "desert" && <Mountain className="w-8 h-8 text-white" />}
-                </div>
-
-                {/* Title overlay */}
+            <Card key={service.id} className="hover:shadow-lg transition-shadow">
+              <div className="h-48 bg-gradient-to-br from-green-400 to-green-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-black/20"></div>
+                {service.image === "mountain" && <Mountain className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />}
+                {service.image === "beach" && <Tent className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />}
+                {service.image === "family" && <Users className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />}
+                {service.image === "forest" && <Tent className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />}
+                {service.image === "waterfall" && <Tent className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />}
+                {service.image === "desert" && <Tent className="absolute bottom-4 right-4 w-10 h-10 text-white/80" />}
                 <div className="absolute bottom-4 left-4 text-white">
-                  <h3 className="text-lg font-bold mb-1 line-clamp-1">{service.name}</h3>
-                  <div className="flex items-center gap-1 text-sm opacity-90">
-                    <MapPin className="w-3 h-3" />
-                    <span className="truncate">{service.location}</span>
-                  </div>
+                  {service.tags.includes("Phổ biến") && (
+                    <Badge className="mb-2 bg-red-500 hover:bg-red-600 text-white">Phổ biến</Badge>
+                  )}
+                  {service.tags.includes("Mới") && (
+                    <Badge className="mb-2 bg-blue-500 hover:bg-blue-600 text-white">Mới</Badge>
+                  )}
+                  {service.tags.includes("Ưu đãi") && (
+                    <Badge className="mb-2 bg-green-500 hover:bg-green-600 text-white">Ưu đãi</Badge>
+                  )}
+                  <h3 className="text-lg font-bold">{service.name}</h3>
+                  <p className="text-sm opacity-90">{service.location}</p>
                 </div>
               </div>
-
-              {/* Content */}
-              <CardContent className="p-6">
-                {/* Rating and Reviews */}
-                <div className="flex items-center justify-between mb-3">
+              <CardHeader>
+                <CardTitle className="text-lg">{service.name}</CardTitle>
+                <CardDescription>{service.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold text-gray-900">{service.rating}</span>
-                    <span className="text-sm text-gray-500">({service.reviews} đánh giá)</span>
+                    <span className="font-semibold">{service.rating}</span>
+                    <span className="text-sm text-gray-500">({service.reviews})</span>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{service.duration}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      <span>{service.capacity}</span>
-                    </div>
-                  </div>
+                  <Badge variant="secondary">{service.availability}</Badge>
                 </div>
-
-                {/* Description */}
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">{service.description}</p>
-
-                {/* Price and Actions */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-2xl font-bold text-green-600">{service.price.toLocaleString("vi-VN")}đ</span>
-                    <span className="text-gray-500 text-sm">/gói</span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm text-gray-600">
+                    <p><Calendar className="inline w-4 h-4 mr-2" />{service.duration}</p>
+                    <p><Users className="inline w-4 h-4 mr-2" />{service.capacity}</p>
+                    <p><MapPin className="inline w-4 h-4 mr-2" />{service.location}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" asChild className="hover:bg-gray-50">
-                      <Link href={`/services/${service.id}`}>Chi tiết</Link>
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={service.availability === "Hết chỗ"}
-                      asChild={service.availability !== "Hết chỗ"}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {service.availability === "Hết chỗ" ? (
-                        "Hết chỗ"
-                      ) : (
-                        <Link href={`/booking/${service.id}`}>Đặt ngay</Link>
-                      )}
-                    </Button>
-                  </div>
+                  <span className="text-2xl font-bold text-green-600">{service.price.toLocaleString("vi-VN")}đ</span>
                 </div>
+                <Button className="w-full" asChild>
+                  <Link href={`/services/${service.id}`}>Xem chi tiết</Link>
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
 
         {/* Custom Service CTA */}
-        <Card className="mt-12 bg-gradient-to-r from-purple-600 via-blue-600 to-green-600 text-white overflow-hidden relative">
-          <div className="absolute inset-0 bg-black" />
-          <CardContent className="relative text-center py-12">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Tent className="w-8 h-8" />
-                <h3 className="text-3xl font-bold">Tạo gói dịch vụ riêng</h3>
-                <Star className="w-8 h-8" />
-              </div>
-              <p className="text-xl text-white/90 mb-8 leading-relaxed">
-                Không tìm thấy gói phù hợp? Hãy tự thiết kế chuyến cắm trại hoàn hảo theo sở thích của bạn với thiết bị
-                và dịch vụ tùy chọn
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" variant="secondary" className="bg-white text-gray-900 hover:bg-gray-100" asChild>
-                  <Link href="/custom-service">
-                    <Tent className="w-5 h-5 mr-2" />
-                    Tạo gói riêng ngay
-                  </Link>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="text-gray-900 border-white hover:bg-white hover:text-gray-900"
-                  asChild
-                >
-                  <Link href="/ai-consultant">
-                    <MessageCircle className="w-5 h-5 mr-2" />
-                    Tư vấn với AI
-                  </Link>
-                </Button>
-              </div>
+        <Card className="mt-12 bg-gradient-to-r from-green-600 to-green-700 text-back border-0 shadow-xl">
+          <CardContent className="text-center py-12">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Tent className="w-8 h-8" />
+              <h3 className="text-3xl font-bold">Tạo gói dịch vụ riêng</h3>
+              <Star className="w-8 h-8" />
+            </div>
+            <p className="text-xl text-back/90 mb-8 leading-relaxed">
+              Không tìm thấy gói phù hợp? Hãy tự thiết kế chuyến cắm trại hoàn hảo theo sở thích của bạn với thiết bị
+              và dịch vụ tùy chọn
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" variant="secondary" className="bg-white text-gray-900 hover:bg-gray-100" asChild>
+                <Link href="/custom-service">
+                  <Tent className="w-5 h-5 mr-2" />
+                  Tạo gói riêng ngay
+                </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="text-gray-900 border-white hover:bg-white hover:text-gray-900"
+                asChild
+              >
+                <Link href="/ai-consultant">
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Tư vấn với AI
+                </Link>
+              </Button>
+            </div>
 
-              {/* Features */}
-              <div className="grid md:grid-cols-3 gap-6 mt-8 text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-300" />
-                  <span>Tự chọn thiết bị</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-300" />
-                  <span>Linh hoạt thời gian</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-300" />
-                  <span>Giá cả minh bạch</span>
-                </div>
+            {/* Features */}
+            <div className="grid md:grid-cols-3 gap-6 mt-8 text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-300" />
+                <span>Tự chọn thiết bị</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-300" />
+                <span>Linh hoạt thời gian</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-300" />
+                <span>Giá cả minh bạch</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* AI Consultant CTA */}
-        <Card className="mt-8 bg-gradient-to-r from-green-600 to-green-700 text-while">
+        <Card className="mt-8 bg-gradient-to-r from-green-600 to-green-700 text-back">
           <CardContent className="text-center py-8">
             <h3 className="text-2xl font-bold mb-4">Không tìm thấy gói phù hợp?</h3>
-            <p className="text-green-700 mb-8">
+            <p className="text-back/90 mb-8">
               Để AI tư vấn giúp bạn tìm gói dịch vụ hoàn hảo dựa trên sở thích và ngân sách
             </p>
             <Button size="lg" variant="secondary" asChild>

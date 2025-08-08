@@ -1,73 +1,90 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tent, Users, Target, Heart, Shield, Zap, MessageCircle, Star, CheckCircle,Sparkles } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tent, Users, Award, Heart, Sparkles, Settings } from "lucide-react"
 import Link from "next/link"
+import { login } from "../api/auth" // Import from auth.ts
 
 export default function AboutPage() {
-  const stats = [
-    { number: "1,000+", label: "Khách hàng hài lòng", icon: Users },
-    { number: "50+", label: "Địa điểm cắm trại", icon: Tent },
-    { number: "4.8/5", label: "Đánh giá trung bình", icon: Star },
-    { number: "24/7", label: "Hỗ trợ khách hàng", icon: MessageCircle },
-  ]
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
+  const router = useRouter()
 
-  const values = [
-    {
-      icon: Heart,
-      title: "Đam mê thiên nhiên",
-      description: "Chúng tôi tin rằng thiên nhiên là nơi con người tìm thấy sự bình yên và kết nối với chính mình.",
-    },
-    {
-      icon: Shield,
-      title: "An toàn tuyệt đối",
-      description:
-        "Mọi hoạt động đều được đảm bảo an toàn với thiết bị chất lượng cao và hướng dẫn viên chuyên nghiệp.",
-    },
-    {
-      icon: Zap,
-      title: "Công nghệ tiên tiến",
-      description: "Ứng dụng AI và công nghệ hiện đại để mang đến trải nghiệm tốt nhất cho khách hàng.",
-    },
-    {
-      icon: Target,
-      title: "Chất lượng hàng đầu",
-      description: "Cam kết cung cấp dịch vụ chất lượng cao với giá cả hợp lý và phù hợp với mọi đối tượng.",
-    },
-  ]
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    const userData = localStorage.getItem('user')
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    }
+  }, [])
 
-  const team = [
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+  }
+
+  // Handle dashboard navigation based on role
+  const handleDashboardNavigation = () => {
+    if (user?.role === 'ADMIN') {
+      router.push('/admin')
+    } else if (user?.role === 'STAFF') {
+      router.push('/staff')
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
+  const teamMembers = [
     {
-      name: "Nguyễn Văn An",
-      role: "CEO & Founder",
-      experience: "10+ năm kinh nghiệm",
-      description: "Chuyên gia về du lịch sinh thái và cắm trại",
+      name: "Nguyễn Văn A",
+      role: "Sáng lập & CEO",
+      image: "/team-member-1.jpg",
+      description: "Nhà sáng lập với hơn 10 năm kinh nghiệm tổ chức các chuyến cắm trại khắp Việt Nam.",
     },
     {
-      name: "Trần Thị Bình",
-      role: "Head of Operations",
-      experience: "8+ năm kinh nghiệm",
-      description: "Quản lý vận hành và đảm bảo chất lượng dịch vụ",
+      name: "Trần Thị B",
+      role: "Giám đốc vận hành",
+      image: "/team-member-2.jpg",
+      description: "Chuyên gia vận hành, đảm bảo mọi chuyến đi đều an toàn và đáng nhớ.",
     },
     {
-      name: "Lê Văn Cường",
-      role: "Lead Guide",
-      experience: "12+ năm kinh nghiệm",
-      description: "Hướng dẫn viên trưởng với chứng chỉ quốc tế",
-    },
-    {
-      name: "Phạm Thị Dung",
-      role: "AI Technology Lead",
-      experience: "6+ năm kinh nghiệm",
-      description: "Phát triển hệ thống AI tư vấn thông minh",
+      name: "Lê Văn C",
+      role: "Chuyên gia AI",
+      image: "/team-member-3.jpg",
+      description: "Người đứng sau công nghệ AI tư vấn, mang đến trải nghiệm cá nhân hóa.",
     },
   ]
 
-  const achievements = [
-    "Giải thưởng 'Dịch vụ du lịch xuất sắc' năm 2023",
-    "Top 10 công ty du lịch sinh thái hàng đầu Việt Nam",
-    "Chứng nhận ISO 9001:2015 về quản lý chất lượng",
-    "Đối tác chiến lược của 20+ khu bảo tồn thiên nhiên",
+  const milestones = [
+    {
+      year: "2018",
+      event: "Thành lập OG Camping",
+      description: "Bắt đầu sứ mệnh mang cắm trại đến gần hơn với mọi người.",
+    },
+    {
+      year: "2020",
+      event: "Ra mắt dịch vụ AI tư vấn",
+      description: "Tích hợp công nghệ AI để gợi ý các chuyến đi cá nhân hóa.",
+    },
+    {
+      year: "2022",
+      event: "Mở rộng quốc tế",
+      description: "Triển khai các tour cắm trại đến Bali và Thái Lan.",
+    },
+    {
+      year: "2024",
+      event: "Đạt 10,000 khách hàng",
+      description: "Phục vụ hơn 10,000 khách hàng với đánh giá 4.8/5.",
+    },
   ]
 
   return (
@@ -80,7 +97,7 @@ export default function AboutPage() {
               <img src="/ai-avatar.jpg" className="h-12 w-12 rounded-full object-cover group-hover:scale-110 transition-transform duration-300" />
               <Sparkles className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500 animate-pulse" />
             </div>
-           <span className="text-3xl font-bold text-green-600">OG Camping</span>
+            <span className="text-3xl font-bold text-green-600">OG Camping</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/services" className="text-gray-600 hover:text-green-600 transition-colors">
@@ -100,164 +117,184 @@ export default function AboutPage() {
             </Link>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/login">Đăng nhập</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/register">Đăng ký</Link>
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <span className="text-gray-800 font-medium">{user?.name}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="h-5 w-5 text-gray-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDashboardNavigation}>
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link href="/login">Đăng nhập</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/register">Đăng ký</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="py-24 px-4 relative overflow-hidden">
-         {/* Background decorations */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-          <div className="absolute top-40 left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-        </div>
-          <div className="container mx-auto text-center">
+      <section className="py-4 px-4 bg-gradient-to-r from-green-600 to-green-800 text-green-800">
+        <div className="container mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">Về OG Camping</h1>
-          <p className="text-2xl text-green-300 mb-8 max-w-3xl mx-auto">
-            Chúng tôi là đội ngũ đam mê thiên nhiên, mang đến những trải nghiệm cắm trại độc đáo và an toàn nhất cho mọi
-            người
+          <p className="text-xl text-back/90 mb-8 max-w-3xl mx-auto">
+            Chúng tôi mang đến những trải nghiệm cắm trại độc đáo, kết hợp thiên nhiên và công nghệ AI tiên tiến để tạo nên hành trình đáng nhớ.
           </p>
+          <Button size="lg" variant="secondary" className="bg-white text-gray-900 hover:bg-gray-100" asChild>
+            <Link href="/services">
+              <Tent className="w-5 h-5 mr-2" />
+              Khám phá dịch vụ
+            </Link>
+          </Button>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 px-4 bg-white">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon
-              return (
-                <div key={index} className="text-center">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Icon className="w-8 h-8 text-green-600" />
-                  </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-2">{stat.number}</h3>
-                  <p className="text-gray-600">{stat.label}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Mission & Vision */}
-      <section className="py-16 px-4 bg-gray-50">
-        <div className="container mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">Sứ mệnh của chúng tôi</h2>
-              <p className="text-gray-700 text-lg mb-6 leading-relaxed">
-                OG Camping được thành lập với sứ mệnh mang đến những trải nghiệm cắm trại an toàn, thú vị và đáng nhớ
-                cho mọi người. Chúng tôi tin rằng thiên nhiên có sức mạnh chữa lành và kết nối con người với nhau.
-              </p>
-              <p className="text-gray-700 text-lg mb-6 leading-relaxed">
-                Với sự kết hợp giữa kinh nghiệm lâu năm và công nghệ AI tiên tiến, chúng tôi cam kết cung cấp dịch vụ tư
-                vấn thông minh và cá nhân hóa cho từng khách hàng.
-              </p>
-              <div className="space-y-3">
-                {achievements.map((achievement, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                    <span className="text-gray-700">{achievement}</span>
-                  </div>
-                ))}
-              </div>
+      <div className="container mx-auto px-4 py-16">
+        {/* Mission Section */}
+        <Card className="mb-12">
+          <CardHeader>
+            <CardTitle className="text-3xl text-center">Sứ mệnh của chúng tôi</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="flex justify-center mb-6">
+              <Heart className="w-16 h-16 text-green-600" />
             </div>
-            <div className="h-96 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center">
-              <Tent className="w-24 h-24 text-white/80" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Values */}
-      <section className="py-16 px-4 bg-white">
-        <div className="container mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Giá trị cốt lõi</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Những giá trị này định hướng mọi hoạt động của chúng tôi và tạo nên sự khác biệt trong dịch vụ
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Tại OG Camping, chúng tôi tin rằng cắm trại không chỉ là một chuyến đi, mà là cơ hội để kết nối với thiên nhiên, gia đình và bạn bè. Sứ mệnh của chúng tôi là làm cho mọi chuyến cắm trại trở nên dễ dàng, an toàn và đáng nhớ với sự hỗ trợ của công nghệ AI hiện đại.
             </p>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((value, index) => {
-              const Icon = value.icon
-              return (
-                <Card key={index} className="text-center hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Icon className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-3">{value.title}</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">{value.description}</p>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Team */}
-      <section className="py-16 px-4 bg-gray-50">
-        <div className="container mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Đội ngũ chuyên gia</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Những con người đam mê và giàu kinh nghiệm, luôn sẵn sàng mang đến trải nghiệm tốt nhất cho bạn
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {team.map((member, index) => (
-              <Card key={index} className="text-center hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users className="w-10 h-10 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{member.name}</h3>
-                  <p className="text-green-600 font-medium mb-2">{member.role}</p>
-                  <Badge variant="secondary" className="mb-3">
-                    {member.experience}
-                  </Badge>
-                  <p className="text-gray-600 text-sm">{member.description}</p>
+        {/* Team Section */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Đội ngũ của chúng tôi</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {teamMembers.map((member, index) => (
+              <Card key={index} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-6 text-center">
+                  <img
+                    src={member.image}
+                    alt={member.name}
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
+                  <h3 className="text-xl font-semibold">{member.name}</h3>
+                  <p className="text-green-600 mb-2">{member.role}</p>
+                  <p className="text-gray-600">{member.description}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* CTA Section */}
-      <section className="py-16 px-4 bg-green-700 text-white">
-        <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Sẵn sàng khám phá thiên nhiên?</h2>
-          <p className="text-xl text-green-300 mb-8 max-w-2xl mx-auto">
-            Hãy để chúng tôi giúp bạn tạo ra những kỷ niệm đáng nhớ với thiên nhiên
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/services">Đặt dịch vụ ngay</Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-green-600 border-white hover:bg-white hover:text-green-600"
-              asChild
-            >
-              <Link href="/ai-consultant">Tư vấn miễn phí</Link>
-            </Button>
+        {/* Milestones Section */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Hành trình của chúng tôi</h2>
+          <div className="relative">
+            <div className="absolute left-1/2 transform -translate-x-1/2 w-1 bg-green-200 h-full"></div>
+            {milestones.map((milestone, index) => (
+              <div
+                key={index}
+                className={`flex items-center mb-8 ${index % 2 === 0 ? "flex-row-reverse" : ""}`}
+              >
+                <div className="w-1/2 px-4">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-semibold text-green-600">{milestone.year}</h3>
+                      <h4 className="text-lg font-medium mb-2">{milestone.event}</h4>
+                      <p className="text-gray-600">{milestone.description}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="w-1/2 px-4">
+                  <div className="flex justify-center">
+                    <div className="w-4 h-4 bg-green-600 rounded-full z-10"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* Values Section */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold text-center mb-8">Giá trị cốt lõi</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Users className="w-12 h-12 mx-auto mb-4 text-green-600" />
+                <h3 className="text-xl font-semibold mb-2">Khách hàng là trung tâm</h3>
+                <p className="text-gray-600">
+                  Mọi quyết định của chúng tôi đều dựa trên việc mang lại trải nghiệm tốt nhất cho khách hàng.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Award className="w-12 h-12 mx-auto mb-4 text-green-600" />
+                <h3 className="text-xl font-semibold mb-2">Chất lượng vượt trội</h3>
+                <p className="text-gray-600">
+                  Cam kết cung cấp thiết bị và dịch vụ chất lượng cao, được kiểm tra kỹ lưỡng.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Heart className="w-12 h-12 mx-auto mb-4 text-green-600" />
+                <h3 className="text-xl font-semibold mb-2">Yêu thiên nhiên</h3>
+                <p className="text-gray-600">
+                  Chúng tôi thúc đẩy lối sống bền vững và bảo vệ môi trường trong mọi hoạt động.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <Card className="bg-gradient-to-r from-green-600 to-green-700 text-back">
+          <CardContent className="text-center py-12">
+            <h3 className="text-3xl font-bold mb-4">Tham gia cùng chúng tôi</h3>
+            <p className="text-xl text-back/90 mb-8 max-w-2xl mx-auto">
+              Hãy cùng OG Camping khám phá thiên nhiên và tạo nên những kỷ niệm không thể quên!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" variant="secondary" className="bg-white text-gray-900 hover:bg-gray-100" asChild>
+                <Link href="/services">
+                  <Tent className="w-5 h-5 mr-2" />
+                  Xem dịch vụ
+                </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="text-gray-900 border-white hover:bg-white hover:text-gray-900"
+                asChild
+              >
+                <Link href="/contact">
+                  <Users className="w-5 h-5 mr-2" />
+                  Liên hệ ngay
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Footer */}
       <footer className="bg-black text-white py-12 px-4">
