@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { PackageFormData } from './package';
 
 // Define interfaces for request and response data
 interface Stat {
@@ -90,6 +91,7 @@ interface SubmitEquipmentRequest {
   status: 'available' | 'out_of_stock';
 }
 
+
 /**
  * Fetch the current user's data
  */
@@ -113,42 +115,52 @@ export const fetchUser = async (token: string, id: number): Promise<User> => {
     throw { status, data, message };
   }
 };
-
-/**
- * Submit equipment data
- */
-export const submitEquipment = async (token: string, data: SubmitEquipmentRequest): Promise<void> => {
+export async function submitEquipment(token: string, data: any) {
   try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const formData = new FormData();
     formData.append('name', data.name);
     formData.append('category', data.category);
     formData.append('area', data.area);
     formData.append('description', data.description);
-    formData.append('quantity_in_stock', data.quantity_in_stock.toString());
-    formData.append('available', data.available.toString());
-    formData.append('price_per_day', data.price_per_day.toString());
+    formData.append('quantity_in_stock', String(data.quantity_in_stock));
+    formData.append('available', String(data.available));
+    formData.append('price_per_day', String(data.price_per_day));
     formData.append('status', data.status);
     if (data.image) {
       formData.append('image', data.image);
     }
 
-    await axios.post(`${API_URL}/apis/v1/gears`, formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data',
-      },
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/apis/v1/gears`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
     });
-  } catch (error: any) {
-    const status = error.response?.status || 500;
-    const data = error.response?.data || {};
-    const message = data.error || error.message || 'Failed to submit equipment';
 
-    console.error('Error submitting equipment:', { status, message, data });
+    if (!res.ok) {
+      let errorData = null;
+      try {
+        errorData = await res.json();
+      } catch {
+        /* ignore parse error */
+      }
+      throw {
+        status: res.status,
+        message: errorData?.message || 'Lỗi khi thêm thiết bị',
+        errorData,
+      };
+    }
 
-    throw { status, data, message };
+    return await res.json();
+  } catch (err: any) {
+    console.error('Error submitting equipment:', {
+      status: err?.status || 500,
+      message: err?.message || 'Unknown error',
+      errorData: err?.errorData || null,
+    });
+    throw err;
   }
-};
+}
+
 
 /**
  * Fetch stats for the dashboard
@@ -299,6 +311,99 @@ export const createStaff = async (token: string, data: CreateStaffRequest): Prom
 
     console.error('Error creating staff:', { status, message, data });
 
+    throw { status, data, message };
+  }
+};
+/**
+ * Fetch gears (equipment)
+ */
+export const fetchGears = async (token: string) => {
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const response = await axios.get(`${API_URL}/apis/v1/gears`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    const data = error.response?.data || {};
+    const message = data.error || error.message || 'Failed to fetch gears';
+    console.error('Error fetching gears:', { status, message, data });
+    throw { status, data, message };
+  }
+};
+
+/**
+ * Fetch categories
+ */
+export const fetchCategories = async (token: string) => {
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const response = await axios.get(`${API_URL}/apis/v1/categories`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    const data = error.response?.data || {};
+    const message = data.error || error.message || 'Failed to fetch categories';
+    console.error('Error fetching categories:', { status, message, data });
+    throw { status, data, message };
+  }
+};
+
+/**
+ * Fetch areas
+ */
+export const fetchAreas = async (token: string) => {
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const response = await axios.get(`${API_URL}/apis/v1/areas`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    const data = error.response?.data || {};
+    const message = data.error || error.message || 'Failed to fetch areas';
+    console.error('Error fetching areas:', { status, message, data });
+    throw { status, data, message };
+  }
+};
+export const createPackage = async (
+  token: string,
+  packageData: PackageFormData,
+  image?: File | null,
+  gearSelections?: any
+) => {
+  const formData = new FormData();
+  Object.entries(packageData).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value.toString());
+    }
+  });
+
+  if (image) {
+    formData.append('image', image);
+  }
+  if (gearSelections) {
+    formData.append('gearSelections', JSON.stringify(gearSelections));
+  }
+
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const response = await axios.post(`${API_URL}/apis/v1/packages`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    const status = error.response?.status || 500;
+    const data = error.response?.data || {};
+    const message = data.error || error.message || 'Failed to create package';
+    console.error('Error creating package:', { status, message, data });
     throw { status, data, message };
   }
 };

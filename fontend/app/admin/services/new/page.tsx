@@ -43,76 +43,73 @@ export default function NewPackagePage() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
 
-  // Fetch user ID to get the token and validate user
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      if (!token) {
-        setError('No authentication token found. Please log in.');
-        router.push('/login');
-        return;
-      }
+ // Fetch user ID to get the token and validate user
+useEffect(() => {
+  const fetchUserData = async () => {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    if (!token) {
+      setError('No authentication token found. Please log in.');
+      router.push('/login');
+      return;
+    }
 
-      try {
-        // Note: The user ID should come from a reliable source (e.g., decoded token).
-        // For now, using a placeholder ID. Replace with actual logic to get user ID.
-        const user = await fetchUser(token, 1); // Adjust to fetch actual user ID
-        setUserId(Number(user._id));
-      } catch (err: any) {
-        const status = err.status || 500;
-        const message = err.message || 'Failed to fetch user';
-        console.error('Error fetching user:', { status, message });
-        setError(message);
+    try {
+      const user = await fetchUser(token, 1); // TODO: thay bằng decode token
+      setUserId(Number(user._id));
+    } catch (err: any) {
+      const status = err.status || 500;
+      const message = err.message || 'Failed to fetch user';
+      console.error('Error fetching user:', { status, message });
+      setError(message);
+      localStorage.removeItem('authToken');
+      sessionStorage.removeItem('authToken');
+      router.push('/login');
+      setIsLoading(false); // Quan trọng: dừng loading nếu lỗi
+    }
+  };
+
+  fetchUserData();
+}, [router]);
+
+// Fetch gears, categories, and areas on component mount
+useEffect(() => {
+  const fetchData = async () => {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    if (!token) {
+      setError('No authentication token found. Please log in.');
+      router.push('/login');
+      return;
+    }
+
+    try {
+      const [gearsData, categoriesData, areasData] = await Promise.all([
+        fetchGears(token),
+        fetchCategories(token),
+        fetchAreas(token),
+      ]);
+
+      setGears(gearsData);
+      setCategories(categoriesData);
+      setAreas(areasData);
+    } catch (err: any) {
+      const status = err.status || 500;
+      const message = err.message || 'Failed to fetch data';
+      console.error('Error fetching data:', { status, message });
+      if (status === 401 || status === 403) {
+        setError('Unauthorized. Please log in again.');
         localStorage.removeItem('authToken');
         sessionStorage.removeItem('authToken');
         router.push('/login');
+      } else {
+        setError(message);
       }
-    };
+    } finally {
+      setIsLoading(false); // Đảm bảo luôn tắt loading
+    }
+  };
 
-    fetchUserData();
-  }, [router]);
-
-  // Fetch gears, categories, and areas on component mount
-  useEffect(() => {
-    if (!userId) return;
-
-    const fetchData = async () => {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      if (!token) {
-        setError('No authentication token found. Please log in.');
-        router.push('/login');
-        return;
-      }
-
-      try {
-        const [gearsData, categoriesData, areasData] = await Promise.all([
-          fetchGears(token),
-          fetchCategories(token),
-          fetchAreas(token),
-        ]);
-
-        setGears(gearsData);
-        setCategories(categoriesData);
-        setAreas(areasData);
-      } catch (err: any) {
-        const status = err.status || 500;
-        const message = err.message || 'Failed to fetch data';
-        console.error('Error fetching data:', { status, message });
-        if (status === 401 || status === 403) {
-          setError('Unauthorized. Please log in again.');
-          localStorage.removeItem('authToken');
-          sessionStorage.removeItem('authToken');
-          router.push('/login');
-        } else {
-          setError(message);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [router, userId]);
+  fetchData();
+}, [router]);
 
   // Handle navigation to the next step
   const handleNext = () => {

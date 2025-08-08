@@ -53,7 +53,7 @@ export default function NewEquipmentPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Check storage availability
+  // Kiểm tra localStorage
   const isStorageAvailable = (): boolean => {
     try {
       const testKey = '__test__';
@@ -61,7 +61,7 @@ export default function NewEquipmentPage() {
       localStorage.removeItem(testKey);
       return true;
     } catch (e) {
-      console.error('localStorage is unavailable:', e);
+      console.error('localStorage không khả dụng:', e);
       return false;
     }
   };
@@ -70,23 +70,20 @@ export default function NewEquipmentPage() {
     const loadUser = async () => {
       try {
         if (!isStorageAvailable()) {
-          setError('Browser storage is disabled. Please enable localStorage to continue.');
+          setError('Trình duyệt đã tắt lưu trữ. Vui lòng bật localStorage để tiếp tục.');
           router.push('/login');
           return;
         }
 
-        // Get token and userId from localStorage
         const token = localStorage.getItem('authToken');
         const userId = localStorage.getItem('userId');
 
         if (!token || !userId) {
-          console.warn('Missing authToken or userId in localStorage');
-          setError('Authentication token or user ID not found. Please log in.');
+          setError('Không tìm thấy token hoặc ID người dùng. Vui lòng đăng nhập lại.');
           router.push('/login');
           return;
         }
 
-        // Check if user data is stored in localStorage
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           try {
@@ -98,19 +95,15 @@ export default function NewEquipmentPage() {
               : undefined;
 
             if (userRole === 'ADMIN') {
-              console.log('User loaded from localStorage:', parsedUser);
               setUser(parsedUser);
               setIsLoading(false);
               return;
             }
-          } catch (parseError) {
-            console.error('Failed to parse stored user data:', parseError);
+          } catch {
             localStorage.removeItem('user');
           }
         }
 
-        // Fetch user data from API
-        console.log('Fetching user data for userId:', userId);
         const userData = await fetchUser(token, Number(userId));
         const userRole = Array.isArray(userData.role)
           ? userData.role[0]?.toUpperCase()
@@ -119,34 +112,21 @@ export default function NewEquipmentPage() {
           : undefined;
 
         if (!userRole || userRole !== 'ADMIN') {
-          console.warn('User is not an admin or role is invalid:', userData.role);
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('userId');
-          localStorage.removeItem('user');
-          setError('Unauthorized access. Admin role required.');
+          localStorage.clear();
+          setError('Không có quyền truy cập. Chỉ Admin mới được phép.');
           router.push('/login');
           return;
         }
 
-        // Store user data in localStorage
-        console.log('Storing user data in localStorage:', userData);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
       } catch (err: any) {
-        console.error('Error loading user:', {
-          status: err.status,
-          message: err.message,
-          data: err.data,
-          stack: err.stack,
-        });
         if (err.status === 401 || err.status === 403) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('userId');
-          localStorage.removeItem('user');
-          setError('Session expired or unauthorized. Please log in again.');
+          localStorage.clear();
+          setError('Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.');
           router.push('/login');
         } else {
-          setError(err.message || 'Failed to load user data. Please try again.');
+          setError(err.message || 'Không thể tải dữ liệu người dùng.');
         }
       } finally {
         setIsLoading(false);
@@ -160,11 +140,11 @@ export default function NewEquipmentPage() {
     const file = e.target.files?.[0];
     if (file) {
       if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        setSubmitError('Please select a JPEG or PNG file.');
+        setSubmitError('Vui lòng chọn file JPEG hoặc PNG.');
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        setSubmitError('File size must not exceed 5MB.');
+        setSubmitError('Dung lượng ảnh tối đa là 5MB.');
         return;
       }
       setFormData((prev) => ({ ...prev, image: file }));
@@ -179,40 +159,32 @@ export default function NewEquipmentPage() {
     setSubmitError(null);
 
     if (formData.available > formData.quantity_in_stock) {
-      setSubmitError('Available quantity cannot exceed stock quantity.');
+      setSubmitError('Số lượng khả dụng không được vượt quá số lượng tồn kho.');
       return;
     }
 
     if (!formData.image) {
-      setSubmitError('Please select an image.');
+      setSubmitError('Vui lòng chọn ảnh.');
       return;
     }
 
     if (!formData.area) {
-      setSubmitError('Please select an area.');
+      setSubmitError('Vui lòng chọn khu vực.');
       return;
     }
 
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
-        console.warn('No authToken found during form submission');
-        setSubmitError('Authentication token not found. Please log in.');
+        setSubmitError('Không tìm thấy token xác thực. Vui lòng đăng nhập.');
         router.push('/login');
         return;
       }
 
-      console.log('Submitting equipment with data:', formData);
       await submitEquipment(token, formData);
       router.push('/admin?tab=equipment');
     } catch (err: any) {
-      console.error('Error submitting equipment:', {
-        status: err.status,
-        message: err.message,
-        data: err.data,
-        stack: err.stack,
-      });
-      setSubmitError(err.message || 'Failed to add equipment. Please try again.');
+      setSubmitError(err?.message || 'Không thể thêm thiết bị. Vui lòng thử lại.');
     }
   };
 
@@ -221,13 +193,13 @@ export default function NewEquipmentPage() {
   };
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
   }
 
   if (!user && !isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600">
-        Unable to authenticate user. Please log in again.
+        Không thể xác thực người dùng. Vui lòng đăng nhập lại.
       </div>
     );
   }
@@ -238,7 +210,7 @@ export default function NewEquipmentPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Tent className="h-8 w-8 text-green-600" />
-            <span className="text-2xl font-bold text-green-800">OG Camping Admin</span>
+            <span className="text-2xl font-bold text-green-800">Quản trị OG Camping</span>
           </Link>
           <div className="flex items-center gap-4">
             {user && (
@@ -250,10 +222,9 @@ export default function NewEquipmentPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               onClick={() => router.push('/admin?tab=equipment')}
             >
-              Back to Dashboard
+              Quay lại
             </Button>
           </div>
         </div>
@@ -261,119 +232,101 @@ export default function NewEquipmentPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New Equipment</h1>
-          <p className="text-gray-600">Enter equipment details to add to inventory</p>
+          <h1 className="text-3xl font-bold mb-2">Thêm Thiết Bị Mới</h1>
+          <p className="text-gray-600">Nhập thông tin thiết bị để thêm vào kho</p>
         </div>
 
-        {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">{error}</div>
-        )}
-        {submitError && (
-          <div className="bg-red-100 text-red-700 p-3 rounded-md text-sm mb-4">{submitError}</div>
-        )}
+        {error && <div className="bg-red-100 text-red-700 p-3 mb-4">{error}</div>}
+        {submitError && <div className="bg-red-100 text-red-700 p-3 mb-4">{submitError}</div>}
 
         <Card className="border-0 shadow-lg max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>Equipment Details</CardTitle>
+            <CardTitle>Chi tiết thiết bị</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <Label htmlFor="name">Equipment Name *</Label>
+                <Label htmlFor="name">Tên thiết bị *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="e.g., 4-Person Tent"
-                  className="border-gray-300 focus:border-green-500"
+                  placeholder="Ví dụ: Lều 4 người"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="category">Category *</Label>
+                <Label>Loại thiết bị *</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => handleInputChange('category', value)}
                 >
-                  <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Select category" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn loại" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Tent">Tent</SelectItem>
-                    <SelectItem value="Sleeping Bag">Sleeping Bag</SelectItem>
-                    <SelectItem value="Air Mattress">Air Mattress</SelectItem>
-                    <SelectItem value="Folding Table">Folding Table</SelectItem>
-                    <SelectItem value="Folding Chair">Folding Chair</SelectItem>
-                    <SelectItem value="Stove">Stove</SelectItem>
-                    <SelectItem value="Lantern">Lantern</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="TENT">Lều</SelectItem>
+                    <SelectItem value="SLEEPING_BAG">Túi ngủ</SelectItem>
+                    <SelectItem value="AIR_MATTRESS">Nệm hơi</SelectItem>
+                    <SelectItem value="FOLDING_TABLE">Bàn gấp</SelectItem>
+                    <SelectItem value="FOLDING_CHAIR">Ghế gấp</SelectItem>
+                    <SelectItem value="STOVE">Bếp</SelectItem>
+                    <SelectItem value="LANTERN">Đèn lồng</SelectItem>
+                    <SelectItem value="OTHER">Khác</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="area">Area *</Label>
+                <Label>Khu vực *</Label>
                 <Select
                   value={formData.area}
                   onValueChange={(value) => handleInputChange('area', value)}
                 >
-                  <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Select area" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn khu vực" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Inside Tent">Inside Tent</SelectItem>
-                    <SelectItem value="Outside Tent">Outside Tent</SelectItem>
-                    <SelectItem value="Kitchen">Kitchen</SelectItem>
+                    <SelectItem value="Inside Tent">Bên trong lều</SelectItem>
+                    <SelectItem value="Outside Tent">Bên ngoài lều</SelectItem>
+                    <SelectItem value="Kitchen">Khu bếp</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label>Mô tả</Label>
                 <Textarea
-                  id="description"
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Detailed description of the equipment"
-                  className="border-gray-300 focus:border-green-500"
+                  placeholder="Mô tả chi tiết thiết bị"
                 />
               </div>
 
               <div>
-                <Label htmlFor="image">Image *</Label>
-                <div className="relative">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    onChange={handleImageChange}
-                    className="border-gray-300 focus:border-green-500"
-                    required
-                  />
-                  <ImageIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                </div>
+                <Label>Ảnh *</Label>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={handleImageChange}
+                  required
+                />
                 {imagePreview && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-600">Image Preview:</p>
-                    <img
-                      src={imagePreview}
-                      alt="Image Preview"
-                      className="mt-2 h-32 w-auto rounded-md border border-gray-300"
-                    />
+                    <p className="text-sm text-gray-600">Xem trước ảnh:</p>
+                    <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-auto rounded-md border" />
                   </div>
                 )}
               </div>
 
               <div>
-                <Label htmlFor="price_per_day">Rental Price (VND/day) *</Label>
+                <Label>Giá thuê (VND/ngày) *</Label>
                 <Input
-                  id="price_per_day"
                   type="number"
                   value={formData.price_per_day}
                   onChange={(e) => handleInputChange('price_per_day', Number(e.target.value))}
-                  placeholder="e.g., 100000"
-                  className="border-gray-300 focus:border-green-500"
+                  placeholder="VD: 100000"
                   min="0"
                   required
                 />
@@ -381,27 +334,23 @@ export default function NewEquipmentPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="quantity_in_stock">Stock Quantity *</Label>
+                  <Label>Số lượng tồn kho *</Label>
                   <Input
-                    id="quantity_in_stock"
                     type="number"
                     value={formData.quantity_in_stock}
                     onChange={(e) => handleInputChange('quantity_in_stock', Number(e.target.value))}
-                    placeholder="e.g., 10"
-                    className="border-gray-300 focus:border-green-500"
+                    placeholder="VD: 10"
                     min="0"
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="available">Available Quantity *</Label>
+                  <Label>Số lượng khả dụng *</Label>
                   <Input
-                    id="available"
                     type="number"
                     value={formData.available}
                     onChange={(e) => handleInputChange('available', Number(e.target.value))}
-                    placeholder="e.g., 5"
-                    className="border-gray-300 focus:border-green-500"
+                    placeholder="VD: 5"
                     min="0"
                     required
                   />
@@ -409,37 +358,34 @@ export default function NewEquipmentPage() {
               </div>
 
               <div>
-                <Label htmlFor="status">Status *</Label>
+                <Label>Trạng thái *</Label>
                 <Select
                   value={formData.status}
                   onValueChange={(value) =>
                     handleInputChange('status', value as 'available' | 'out_of_stock')
                   }
                 >
-                  <SelectTrigger className="border-gray-300 focus:border-green-500">
-                    <SelectValue placeholder="Select status" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn trạng thái" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">In Stock</SelectItem>
-                    <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                    <SelectItem value="available">Còn hàng</SelectItem>
+                    <SelectItem value="out_of_stock">Hết hàng</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex gap-4 pt-4">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white border-0"
-                >
-                  Add Equipment
+                <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+                  Thêm thiết bị
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                  className="flex-1"
                   onClick={() => router.push('/admin?tab=equipment')}
                 >
-                  Cancel
+                  Hủy
                 </Button>
               </div>
             </form>
