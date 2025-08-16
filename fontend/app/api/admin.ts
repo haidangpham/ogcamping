@@ -336,8 +336,8 @@ export const fetchCustomers = async (token: string): Promise<Customer[]> => {
     const customers = Array.isArray(response.data)
       ? response.data.filter((user: any) =>
           Array.isArray(user.role)
-            ? user.role.includes('customer')
-            : user.role === 'customer'
+            ? user.role.includes('CUSTOMER')
+            : user.role === 'CUSTOMER'
         )
       : [];
 
