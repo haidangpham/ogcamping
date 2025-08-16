@@ -6,10 +6,15 @@ const nextConfig = {
         protocol: 'http',
         hostname: 'localhost',
         port: '8080',
-        pathname: '/uploads/gears/**',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        pathname: '/**',
       },
     ],
   },
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

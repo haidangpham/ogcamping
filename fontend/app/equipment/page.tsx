@@ -210,39 +210,64 @@ export default function EquipmentPage() {
 
         <div className="grid lg:grid-cols-4 gap-8">
           <div className="lg:col-span-3">
-           {/* Bộ lọc */}
-        <div className="mb-6 p-4 border rounded-lg space-y-2">
-          <input
-            type="text"
-            placeholder="Tìm theo tên..."
-            className="border rounded px-2 py-1 w-full"
-            value={filters.name}
-            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-          />
-          <input
-            type="text"
-            placeholder="Tìm theo category..."
-            className="border rounded px-2 py-1 w-full"
-            value={filters.category}
-            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-          />
-          <div className="flex gap-2">
-            <input
-              type="number"
-              placeholder="Giá từ"
-              className="border rounded px-2 py-1 w-full"
-              value={filters.minPrice}
-              onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
-            />
-            <input
-              type="number"
-              placeholder="Giá đến"
-              className="border rounded px-2 py-1 w-full"
-              value={filters.maxPrice}
-              onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-            />
-          </div>
-        </div>
+            {/* Filters */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              Bộ lọc tìm kiếm
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Tìm kiếm</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input className="pl-10" placeholder="Tìm theo tên, địa điểm..." />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Địa điểm</label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn địa điểm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="sapa">Sapa</SelectItem>
+                    <SelectItem value="phuquoc">Phú Quốc</SelectItem>
+                    <SelectItem value="dalat">Đà Lạt</SelectItem>
+                    <SelectItem value="cattien">Cát Tiên</SelectItem>
+                    <SelectItem value="bali">Bali</SelectItem>
+                    <SelectItem value="muine">Mũi Né</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Số người</label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn số người" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2-4">2-4 người</SelectItem>
+                    <SelectItem value="4-6">4-6 người</SelectItem>
+                    <SelectItem value="6-10">6-10 người</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Giá (VND)</label>
+                <Slider defaultValue={[0, 5000000]} max={5000000} step={100000} />
+                <div className="flex justify-between text-sm text-gray-600 mt-2">
+                  <span>0</span>
+                  <span>5,000,000</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
             {loading ? (
               <p className="text-center text-gray-500">Đang tải thiết bị...</p>
             ) : (
@@ -252,12 +277,20 @@ export default function EquipmentPage() {
                     <div className="h-48 bg-gradient-to-br from-green-400 to-green-600 relative overflow-hidden">
                       {item.image_url ? (
                      <Image
-                          src={`http://localhost:8080/${item.image_url.replace(/^\/+/, '')}`}
-                          alt={item.name}
-                          width={400}
-                          height={300}
-                          className="object-cover"
-                        />
+                      src={
+                        item.image_url && (item.image_url.startsWith('http://') || item.image_url.startsWith('https://'))
+                          ? item.image_url
+                          : `${process.env.NEXT_PUBLIC_API_URL}/${item.image_url.replace(/^\/+/, '')}` || '/placeholder.jpg'
+                      }
+                      alt={item.name}
+                      width={400}
+                      height={300}
+                      className="object-cover"
+                      onError={(e) => {
+                        console.error(`Failed to load image: ${item.image_url}`);
+                        e.currentTarget.src = '/placeholder.jpg'; // Fallback on error
+                      }}
+                    />
                       ) : (
                         <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white">
                           <Package className="w-10 h-10" />

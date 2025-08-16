@@ -104,7 +104,7 @@ interface Customer {
   phone: string;
   bookings: number;
   spent: number;
-  created_at: string;
+  joinDate: string;
 }
 
 interface User {
@@ -1140,8 +1140,8 @@ export default function AdminDashboard() {
                             : 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {customer.created_at && !isNaN(new Date(customer.created_at).getTime())
-                            ? new Date(customer.created_at).toLocaleDateString('vi-VN')
+                          {customer.joinDate && !isNaN(new Date(customer.joinDate).getTime())
+                            ? new Date(customer.joinDate).toLocaleDateString('vi-VN')
                             : 'N/A'}
                         </TableCell>
                         <TableCell>

@@ -58,7 +58,7 @@ interface Customer {
   phone: string;
   bookings: number;
   spent: number;
-  created_at: string;
+  joinDate: string;
 }
 
 interface User {
@@ -238,8 +238,8 @@ export const fetchStaff = async (token: string): Promise<Staff[]> => {
     const staffList = Array.isArray(response.data)
       ? response.data.filter((user: any) =>
           Array.isArray(user.role)
-            ? user.role.includes('staff')
-            : user.role === 'staff'
+            ? user.role.includes('STAFF')
+            : user.role === 'STAFF'
         )
       : [];
 
@@ -349,7 +349,7 @@ export const fetchCustomers = async (token: string): Promise<Customer[]> => {
       phone: c.phone,
       bookings: c.bookings ?? 0,
       spent: c.spent ?? 0,
-      created_at: c.created_at || c.createdAt || '',
+      joinDate: c.joinDate || c.joinDate || '',
     }));
   } catch (error: any) {
     const status = error.response?.status || 500;
