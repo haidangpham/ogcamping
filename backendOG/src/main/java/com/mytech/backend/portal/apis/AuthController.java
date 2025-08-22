@@ -3,11 +3,14 @@ package com.mytech.backend.portal.apis;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.mytech.backend.portal.jwt.JwtUtils;
+import com.mytech.backend.portal.models.User;
+import com.mytech.backend.portal.repositories.UserRepository;
 import com.mytech.backend.portal.services.FirebaseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +23,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtils jwtUtils;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @PostMapping("/exchange")
     public ResponseEntity<?> exchangeToken(@RequestBody Map<String, String> body) {
@@ -30,13 +36,35 @@ public class AuthController {
             // Lấy thông tin từ Firebase
             String uid = decodedToken.getUid();
             String email = decodedToken.getEmail();
-            String role= "USER";
+            String name= decodedToken.getName();
+//            String role= "USER";
+            
+         // Check user trong DB
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            if (user == null) {
+                // ❌ Nếu chưa có thì tạo mới
+                user = User.builder()
+                        .name(name != null ? name : "Unknown")
+                        .email(email)
+                        .password("") // social login => để rỗng hoặc random
+                        .phone("")    // chưa có => để trống
+                        .role(User.Role.CUSTOMER)
+                        .status(User.Status.ACTIVE)
+                        .agreeMarketing(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+                user = userRepository.save(user);
+            }else {
+            	
+            }
             
             //Tạo user
-            Map<String, Object> user = new HashMap<>();
-            user.put("uid", uid);
-            user.put("email", email);
-            user.put("role", role);
+//            Map<String, Object> user = new HashMap<>();
+//            user.put("uid", uid);
+//            user.put("email", email);
+//            user.put("role", role);
 
             // Generate JWT cũ (HS256) để service khác dùng
             String oldJwt = jwtUtils.generateTokenFromEmail(email);

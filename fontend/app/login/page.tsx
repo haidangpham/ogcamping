@@ -82,8 +82,6 @@ const handleSocialLogin = async (provider: "google" | "facebook") => {
 
     const result = await signInWithPopup(auth, providerInstance);
     const idToken = await result.user.getIdToken();
-
-    console.log("ID Token FE gửi:", idToken);
     
     const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
     const response = await fetch(`${API_BASE}/api/auth/exchange`, {
