@@ -25,11 +25,11 @@ public class Gear extends AbstractEntity{
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(length = 50)
     private Category.CategoryName category;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(length = 50)
     private Area.AreaName area;
 
     @Column
@@ -58,7 +58,7 @@ public class Gear extends AbstractEntity{
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum GearStatus {
-        AVAILABLE, OUT_OF_STOCK
+        AVAILABLE, OUT_OF_STOCK, MAINTENANCE
     }
 
 	public Long getId() {

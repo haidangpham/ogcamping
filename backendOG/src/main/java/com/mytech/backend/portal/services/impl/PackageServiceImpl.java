@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.mytech.backend.portal.dto.PackageDTO;
 import com.mytech.backend.portal.models.Package;
+import com.mytech.backend.portal.repositories.GearRepository;
 import com.mytech.backend.portal.repositories.PackageRepository;
 import com.mytech.backend.portal.services.PackageService;
 
@@ -53,4 +54,13 @@ public class PackageServiceImpl implements PackageService {
     public void deletePackage(Long id) {
         packageRepository.deleteById(id);
     }
+
+    @Override
+    public List<PackageDTO> findAll() {
+        return packageRepository.findAll()
+                .stream()
+                .map(pkg -> modelMapper.map(pkg, PackageDTO.class))
+                .collect(Collectors.toList());
+    }
+
 }

@@ -23,8 +23,6 @@ import {
   Star,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useSearchParams } from "next/navigation"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Booking {
   _id: string;
@@ -43,13 +41,6 @@ interface Stat {
   icon: string;
   color: string;
 }
-interface User {
-  fullname: string;
-  email: string;
-  role: string;
-  phone?: string;
-  avatar?: string;
-}
 
 export default function DashboardPage() {
   const [user, setUser] = useState<{ name: string; email: string; phone?: string; role: string; avatar?: string } | null>(null);
@@ -57,64 +48,53 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log("🔍 Bắt đầu fetch dữ liệu...");
-
       try {
-        // Lấy token & userData
-        const token = localStorage.getItem("authToken");
-        const userData = localStorage.getItem("user");
+        setIsLoading(true);
+        setError(null);
 
-        if (!token || !userData) {
-          console.warn("⚠️ Không có token hoặc userData trong localStorage");
-          router.push("/login");
+        // Get token from storage
+        const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        if (!token) {
+          router.push('/login');
           return;
         }
 
-        // Parse user
-        let parsedUser;
-        try {
-          parsedUser = JSON.parse(userData);
-          setUser(parsedUser);
-          console.log("✅ User:", parsedUser);
-        } catch (err) {
-          console.error("❌ Lỗi parse userData:", err);
-          router.push("/login");
-          return;
-        }
+        // Set axios default headers
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-        // Gắn token vào axios
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        // Fetch user data
+        const userResponse = await axios.get('http://localhost:8080/apis/v1/users');
+        setUser(userResponse.data);
 
-        // Fetch orders
-        console.log("📡 Đang gọi API lấy đơn hàng...");
-        const ordersRes = await axios.get("http://localhost:8080/apis/orders/my-orders");
-        console.log("✅ Orders response:", ordersRes.data);
+        // Fetch stats
+        const statsResponse = await axios.get('http://localhost:8080/stats');
+        setStats(statsResponse.data.stats);
 
-        if (Array.isArray(ordersRes.data)) {
-          setPendingOrders(ordersRes.data);
+        // Fetch bookings based on role
+        const bookingsEndpoint = userResponse.data.role === 'admin' ? '/bookings' : '/bookings/user';
+        const bookingsResponse = await axios.get(`http://localhost:8080${bookingsEndpoint}`);
+        setBookings(bookingsResponse.data);
+      } catch (error: any) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('user');
+          router.push('/login');
         } else {
-          console.warn("⚠️ API trả về không phải mảng:", ordersRes.data);
-          setPendingOrders([]);
+          setError(error.response?.data?.error || 'Failed to fetch data');
         }
-      } catch (error) {
-        console.error("❌ Lỗi khi fetch data:", error);
-        setPendingOrders([]);
       } finally {
-        console.log("🏁 Hoàn tất fetch data");
         setIsLoading(false);
       }
     };
 
     fetchData();
   }, [router]);
-
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -182,6 +162,11 @@ export default function DashboardPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-800 rounded">
+            Error: {error}
+          </div>
+        )}
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Chào mừng trở lại, {user.name}!</h1>
@@ -222,63 +207,40 @@ export default function DashboardPage() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Danh sách đơn hàng */}
-              <Card className="lg:col-span-2 shadow-lg rounded-2xl">
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Recent Bookings */}
+              <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Danh sách đơn hàng của bạn</CardTitle>
-                      <CardDescription>Các đơn hàng mà bạn đã đặt</CardDescription>
-                    </div>
-                  </div>
+                  <CardTitle>Đặt chỗ gần đây</CardTitle>
+                  <CardDescription>Các đơn đặt dịch vụ và thiết bị mới nhất</CardDescription>
                 </CardHeader>
-
                 <CardContent>
-                  {pendingOrders && pendingOrders.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Mã đơn hàng</TableHead>
-                          <TableHead>Khách hàng</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Ngày khởi hành</TableHead>
-                          <TableHead>Giá đơn</TableHead>
-                          <TableHead>Số điện thoại</TableHead>
-                          <TableHead>Số người</TableHead>
-                        </TableRow>
-                      </TableHeader>
-
-                      <TableBody>
-                        {pendingOrders.map((order, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">#OGC{Date.now()}</TableCell>
-                            <TableCell>{order.customerName}</TableCell>
-                            <TableCell>{order.email}</TableCell>
-                            <TableCell>
-                              {new Date(order.bookingDate).toLocaleString()}
-                            </TableCell>
-                            <TableCell className="font-medium text-green-600">
-                              {order.totalPrice
-                                ? order.totalPrice.toLocaleString() + " đ"
-                                : "-"}
-                            </TableCell>
-                            <TableCell>{order.phone}</TableCell>
-                            <TableCell>{order.people}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <p className="text-center text-gray-500">
-                      Bạn chưa có đơn hàng nào
-                    </p>
-                  )}
+                  <div className="space-y-4">
+                    {bookings.length > 0 ? (
+                      bookings.map((booking) => (
+                        <div key={booking._id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <h4 className="font-medium">{booking.service}</h4>
+                            <p className="text-sm text-gray-600">{booking.date}</p>
+                          </div>
+                          <div className="text-right">
+                            {getStatusBadge(booking.status)}
+                            <p className="text-sm font-medium mt-1">{(booking.amount || 0).toLocaleString('vi-VN')}đ</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-gray-500">Chưa có đặt chỗ nào</p>
+                    )}
+                  </div>
+                  <Button variant="outline" className="w-full mt-4" asChild>
+                    <Link href="/bookings">Xem tất cả</Link>
+                  </Button>
                 </CardContent>
               </Card>
 
-              {/* Thao tác nhanh */}
-              <Card className="shadow-lg rounded-2xl">
+              {/* Quick Actions */}
+              <Card>
                 <CardHeader>
                   <CardTitle>Thao tác nhanh</CardTitle>
                   <CardDescription>Các tính năng thường sử dụng</CardDescription>
@@ -302,7 +264,7 @@ export default function DashboardPage() {
                       Tư vấn AI
                     </Link>
                   </Button>
-                  {user?.role === "admin" && (
+                  {user.role === 'admin' && (
                     <Button variant="outline" className="w-full justify-start" asChild>
                       <Link href="/reports">
                         <BarChart3 className="w-4 h-4 mr-2" />
@@ -313,8 +275,6 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
-
-
 
             {/* AI Recommendations */}
             <Card>

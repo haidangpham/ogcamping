@@ -1,5 +1,6 @@
 package com.mytech.backend.portal.models;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -37,23 +38,24 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @NotBlank
+//    @NotBlank
     @Column(name = "password", nullable = false)
     private String password;
 
-    @NotBlank
+//    @NotBlank
     @Column(nullable = false)
     private String phone;
 
     @Enumerated(EnumType.STRING)
     @Column
-    private Role role = Role.GUEST;
+    private Role role = Role.CUSTOMER;
 
     @Column
     private String department;
 
     @Column(name = "join_date")
-    private String joinDate;
+    private LocalDate joinDate;
+
 
     @Enumerated(EnumType.STRING)
     @Column
@@ -109,7 +111,7 @@ public class User {
             return this;
         }
 
-        public Builder joinDate(String joinDate) {
+        public Builder joinDate(LocalDate joinDate) {
             user.joinDate = joinDate;
             return this;
         }
@@ -136,7 +138,7 @@ public class User {
 
     // Getters, setters nếu không dùng Lombok (@Getter, @Setter)
     public enum Role {
-        CUSTOMER, STAFF, ADMIN, GUEST
+        CUSTOMER, STAFF, ADMIN
     }
 
     public enum Status {
@@ -199,11 +201,12 @@ public class User {
 		this.department = department;
 	}
 
-	public String getJoinDate() {
+	
+	public LocalDate getJoinDate() {
 		return joinDate;
 	}
 
-	public void setJoinDate(String joinDate) {
+	public void setJoinDate(LocalDate joinDate) {
 		this.joinDate = joinDate;
 	}
 

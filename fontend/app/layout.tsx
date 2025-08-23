@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="vi">
+    <html lang="vi" className="mdl-js">
       <body className={`${inter.variable} ${inter.className}`}>
         {children}
         <ChatBot />
