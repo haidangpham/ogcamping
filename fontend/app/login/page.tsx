@@ -11,8 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tent, Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, AuthProvider } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,93 +23,48 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const response = await login({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (!response?.token || !response?.user?.email) {
-        console.log('Login response:', response);
-        throw new Error('Dữ liệu phản hồi không hợp lệ từ máy chủ.');
-      }
-
-      const { token, user } = response;
-      const role = (user.role || 'CUSTOMER').toString().toUpperCase();
-      const fullUser = { ...user, role };
-      const storage = formData.remember ? localStorage : sessionStorage;
-
-      storage.setItem('authToken', token);
-      storage.setItem('user', JSON.stringify(fullUser));
-
-      if (role === 'ADMIN') {
-        router.push('/admin');
-      } else if (role === 'STAFF') {
-        router.push('/staff');
-      } else {
-        router.push('/dashboard');
-      }
-    } catch (err: any) {
-      console.error('Lỗi đăng nhập:', err);
-      setError(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          err.message ||
-          'Đăng nhập thất bại. Vui lòng thử lại.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-const handleSocialLogin = async (provider: "google" | "facebook") => {
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
   setError(null);
   setIsLoading(true);
+
   try {
-    const providerInstance: AuthProvider =
-      provider === "google" ? new GoogleAuthProvider() : new FacebookAuthProvider();
-
-    if (provider === "google") {
-      (providerInstance as GoogleAuthProvider).setCustomParameters({ prompt: "select_account" });
-    }
-
-    const result = await signInWithPopup(auth, providerInstance);
-    const idToken = await result.user.getIdToken();
-    
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-    const response = await fetch(`${API_BASE}/api/auth/exchange`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }), // ✅ gửi idToken lên backend
+    const response = await login({
+      email: formData.email,
+      password: formData.password,
     });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || "Đăng nhập thất bại.");
+    if (!response?.token || !response?.user?.email) {
+      console.log('Login response:', response);
+      throw new Error('Dữ liệu phản hồi không hợp lệ từ máy chủ.');
+    }
 
-    const { token, user } = data;
-    const role = (user.role || "CUSTOMER").toString().toUpperCase();
+    const { token, user } = response;
+
+    // ✅ Đảm bảo luôn có role hợp lệ
+    const role = (user.role || 'CUSTOMER').toString().toUpperCase();
+
     const fullUser = { ...user, role };
     const storage = formData.remember ? localStorage : sessionStorage;
 
-    storage.setItem("authToken", token);
-    storage.setItem("user", JSON.stringify(fullUser));
+    storage.setItem('authToken', token);
+    storage.setItem('user', JSON.stringify(fullUser));
 
-    if (role === "ADMIN") router.push("/admin");
-    else if (role === "STAFF") router.push("/staff");
-    else router.push("/dashboard");
+    if (role === 'ADMIN') {
+      router.push('/');
+    } else if (role === 'STAFF') {
+      router.push('/');
+    } else {
+      router.push('/');
+    }
   } catch (err: any) {
-    const code = err?.code as string | undefined;
-    const friendly =
-      code === "auth/popup-closed-by-user" ? "Bạn đã đóng cửa sổ đăng nhập." :
-      code === "auth/account-exists-with-different-credential" ? "Email này đã liên kết với nhà cung cấp khác." :
-      err?.message || `Đăng nhập bằng ${provider} thất bại. Vui lòng thử lại.`;
-    console.error(`Lỗi đăng nhập ${provider}:`, err);
-    setError(friendly);
+    console.error('Lỗi đăng nhập:', err);
+    setError(
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      'Đăng nhập thất bại. Vui lòng thử lại.'
+    );
   } finally {
     setIsLoading(false);
   }
@@ -243,7 +196,6 @@ const handleSocialLogin = async (provider: "google" | "facebook") => {
               <Button
                 variant="outline"
                 className="h-12 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
-                onClick={() => handleSocialLogin('google')}
                 disabled={isLoading}
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -269,7 +221,6 @@ const handleSocialLogin = async (provider: "google" | "facebook") => {
               <Button
                 variant="outline"
                 className="h-12 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
-                onClick={() => handleSocialLogin('facebook')}
                 disabled={isLoading}
               >
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">

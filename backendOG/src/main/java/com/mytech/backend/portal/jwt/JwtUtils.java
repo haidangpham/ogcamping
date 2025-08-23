@@ -36,7 +36,7 @@ public class JwtUtils {
 
 		return Jwts.builder().setSubject((userPrincipal.getUsername()))
 				.setIssuedAt(new Date())
-				.setIssuer("ogcamping")
+				.setIssuer("TheApartment")
 				.claim("roles", userPrincipal.roles())
 				.setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
 				.signWith(key(), SignatureAlgorithm.HS256).compact();
@@ -69,16 +69,6 @@ public class JwtUtils {
 		}
 
 		return false;
-	}
-	
-	public String generateTokenFromEmail(String email) {
-	    return Jwts.builder()
-	            .setSubject(email)
-	            .setIssuedAt(new Date())
-	            .setIssuer("ogcamping")
-	            .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-	            .signWith(key(), SignatureAlgorithm.HS256)
-	            .compact();
 	}
 
 	
