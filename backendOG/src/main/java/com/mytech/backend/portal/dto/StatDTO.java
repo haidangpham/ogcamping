@@ -18,14 +18,6 @@ public class StatDTO {
 	public String getTitle() {
 		return title;
 	}
-	public StatDTO(String title, String value, String icon, String color, String change) {
-		super();
-		this.title = title;
-		this.value = value;
-		this.icon = icon;
-		this.color = color;
-		this.change = change;
-	}
 	public void setTitle(String title) {
 		this.title = title;
 	}

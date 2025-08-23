@@ -112,5 +112,11 @@ public class UserServiceImpl implements UserService {
 		return userRepository.save(user);
 	}
 
+	@Override
+	public UserDTO findById(Long id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	
 }

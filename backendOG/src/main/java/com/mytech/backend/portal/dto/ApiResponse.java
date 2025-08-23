@@ -16,13 +16,6 @@ public class ApiResponse<T> {
     private T data;
     
 
-    public ApiResponse(int status, String message, T data) {
-		super();
-		this.status = status;
-		this.message = message;
-		this.data = data;
-	}
-
 	public int getStatus() {
 		return status;
 	}

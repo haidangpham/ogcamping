@@ -91,6 +91,9 @@ const handleSocialLogin = async (provider: "google" | "facebook") => {
     });
 
     const data = await response.json();
+        
+    console.log("Exchange response:", data);
+
     if (!response.ok) throw new Error(data?.error || "Đăng nhập thất bại.");
 
     const { token, user } = data;
