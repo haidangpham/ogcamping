@@ -17,31 +17,40 @@ import axios from "axios"
 import router from "next/router"
 
 
+
+
 export default function BookingPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState(1)
-  const [bookingData, setBookingData] = useState({
-    // Customer info
-    fullName: "",
-    email: "",
-    phone: "",
-    emergencyContact: "",
-    emergencyPhone: "",
-
-    // Booking details
-    date: searchParams.get("date") || "",
-    people: Number(searchParams.get("people")) || 4,
-    specialRequests: "",
-
-    // Payment
-    paymentMethod: "",
-    agreeTerms: false,
-    agreeInsurance: false,
-
-    // Priority (add default value)
-    priority: "NORMAL" as 'NORMAL' | 'HIGH' | 'LOW',
-  })
+  const [bookingData, setBookingData] = useState<{
+  fullName: string;
+  email: string;
+  phone: string;
+  emergencyContact: string;
+  emergencyPhone: string;
+  date: string;
+  people: number;
+  specialRequests: string;
+  paymentMethod: string;
+  agreeTerms: boolean;
+  agreeInsurance: boolean;
+  priority: 'NORMAL' | 'HIGH' | 'LOW';
+  orderCode?: string; // ✅ thêm property orderCode optional
+}>({
+  fullName: "",
+  email: "",
+  phone: "",
+  emergencyContact: "",
+  emergencyPhone: "",
+  date: searchParams.get("date") || "",
+  people: Number(searchParams.get("people")) || 4,
+  specialRequests: "",
+  paymentMethod: "",
+  agreeTerms: false,
+  agreeInsurance: false,
+  priority: "NORMAL",
+});
 
 
   // Mock service data
@@ -102,18 +111,30 @@ export default function BookingPage() {
   }, []);
 
 
-  const handleSubmit = async () => {
-    try {
-      const token =
-        localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-      // Mapping bookingData sang Order
+
+
+
+    const handleSubmit = async () => {
+    try {
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
+      // bookingDate = ngày khách chọn + 9h sáng VN
+      const bookingDateObj = new Date(bookingData.date);
+      bookingDateObj.setHours(9, 0, 0, 0);
+      const bookingDate = bookingDateObj.toISOString();
+
+      // orderDate = hiện tại
+      const now = new Date();
+      const orderDate = new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString();
+
       const orderToSave: any = {
         customerName: bookingData.fullName,
         email: bookingData.email,
         phone: bookingData.phone,
         people: bookingData.people,
-        bookingDate: new Date(bookingData.date).toISOString(),
+        bookingDate,
+        orderDate,
         totalPrice,
         specialRequests: bookingData.specialRequests,
         emergencyContact: bookingData.emergencyContact,
@@ -124,32 +145,30 @@ export default function BookingPage() {
       };
 
       if (token) {
-        // Nếu login → gắn token để backend lấy email từ User
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      } else {
-        // Nếu guest → email phải có trong bookingData
-        if (!bookingData.email || bookingData.email.trim() === "") {
-          alert("Vui lòng nhập email để đặt đơn.");
-          return;
-        }
-        orderToSave.email = bookingData.email;
+      } else if (!bookingData.email?.trim()) {
+        alert("Vui lòng nhập email để đặt đơn.");
+        return;
       }
 
-      // Gửi lên backend
-      const response = await axios.post(
-        "http://localhost:8080/apis/orders",
-        orderToSave
-      );
+      // Gửi request → backend sẽ tự sinh orderCode
+      const response = await axios.post("http://localhost:8080/apis/orders", orderToSave);
 
       console.log("Order created:", response.data);
 
-      // Chuyển sang bước 4: thành công
+      // Lấy orderCode backend trả về
+      const orderCodeFromBackend = response.data.orderCode;
+
+      // lưu vào state để hiển thị
+      setBookingData((prev) => ({ ...prev, orderCode: orderCodeFromBackend }));
+
       setCurrentStep(4);
     } catch (err: any) {
       console.error("Lỗi khi tạo đơn:", err.response?.data || err.message);
       alert("Lỗi khi tạo đơn, vui lòng thử lại.");
     }
   };
+
 
 
   return (
@@ -563,9 +582,9 @@ export default function BookingPage() {
                     Cảm ơn bạn đã đặt dịch vụ. Chúng tôi sẽ liên hệ với bạn trong vòng 24h để xác nhận chi tiết.
                   </p>
                   <div className="space-y-2 mb-6">
-                    <p>
-                      <span className="font-medium">Mã đặt chỗ:</span> #OGC{Date.now()}
-                    </p>
+                     <p className="text-gray-600 mb-6">
+                    Mã đặt chỗ: <span className="font-semibold">{bookingData.orderCode}</span>
+                  </p>
                     <p>
                       <span className="font-medium">Email xác nhận:</span> Đã gửi đến {bookingData.email}
                     </p>

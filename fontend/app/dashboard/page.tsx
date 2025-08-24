@@ -136,7 +136,11 @@ export default function DashboardPage() {
         return <Badge variant="secondary">Không xác định</Badge>;
     }
   };
-
+  function generateOrderCode(): string {
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `#OGC${timestamp}${randomStr}`;
+  }
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
   }
@@ -153,6 +157,8 @@ export default function DashboardPage() {
     TrendingUp,
     Star,
   };
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -252,7 +258,7 @@ export default function DashboardPage() {
                       <TableBody>
                         {pendingOrders.map((order, idx) => (
                           <TableRow key={idx}>
-                            <TableCell className="font-medium">#OGC{Date.now()}</TableCell>
+                            <TableCell className="font-medium">{order.orderCode}</TableCell>
                             <TableCell>{order.customerName}</TableCell>
                             <TableCell>{order.email}</TableCell>
                             <TableCell>
