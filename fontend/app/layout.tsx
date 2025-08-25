@@ -5,6 +5,7 @@ import "./globals.css"
 import ChatBot from "@/components/chat-bot"
 import { AuthProvider } from "@/context/AuthContext"
 import Navbar from "@/components/NavBar"
+import { ChatProvider } from "@/context/ChatContext"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,9 +28,11 @@ export default function RootLayout({
     <html lang="vi">
       <body className={`${inter.variable} ${inter.className}`} suppressHydrationWarning>
         <AuthProvider>
-          <Navbar />
-          {children}
-          <ChatBot />
+          <ChatProvider>
+            <Navbar />
+            {children}
+            <ChatBot />
+          </ChatProvider>
         </AuthProvider>
       </body>
     </html>
