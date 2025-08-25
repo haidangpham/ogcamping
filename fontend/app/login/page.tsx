@@ -13,17 +13,21 @@ import { Tent, Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from 'lucide-reac
 import Link from 'next/link';
 import { signInWithPopup, GoogleAuthProvider, FacebookAuthProvider, AuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
+   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
     remember: false,
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  const { login: setAuth } = useAuth(); 
+  // ✅ lấy hàm login từ AuthContext để cập nhật user & token
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,38 +35,40 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // gọi API backend login
       const response = await login({
         email: formData.email,
         password: formData.password,
       });
 
       if (!response?.token || !response?.user?.email) {
-        console.log('Login response:', response);
-        throw new Error('Dữ liệu phản hồi không hợp lệ từ máy chủ.');
+        console.log("Login response:", response);
+        throw new Error("Dữ liệu phản hồi không hợp lệ từ máy chủ.");
       }
 
       const { token, user } = response;
-      const role = (user.role || 'CUSTOMER').toString().toUpperCase();
+      const role = (user.role || "CUSTOMER").toString().toUpperCase();
       const fullUser = { ...user, role };
+
       const storage = formData.remember ? localStorage : sessionStorage;
+      storage.setItem("authToken", token);
+      storage.setItem("user", JSON.stringify(fullUser));
 
-      storage.setItem('authToken', token);
-      storage.setItem('user', JSON.stringify(fullUser));
+      // ✅ update AuthContext ngay -> Navbar sẽ thấy user mà không cần F5
+      setAuth(token, fullUser, formData.remember);
 
-      if (role === 'ADMIN') {
-        router.push('/admin');
-      } else if (role === 'STAFF') {
-        router.push('/staff');
-      } else {
-        router.push('/dashboard');
-      }
+      // ✅ redirect theo role
+      if (role === "ADMIN") router.push("/admin");
+      else if (role === "STAFF") router.push("/staff");
+      else router.push("/dashboard");
+
     } catch (err: any) {
-      console.error('Lỗi đăng nhập:', err);
+      console.error("Lỗi đăng nhập:", err);
       setError(
         err.response?.data?.error ||
           err.response?.data?.message ||
           err.message ||
-          'Đăng nhập thất bại. Vui lòng thử lại.'
+          "Đăng nhập thất bại. Vui lòng thử lại."
       );
     } finally {
       setIsLoading(false);

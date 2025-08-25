@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import ChatBot from "@/components/chat-bot"
+import { AuthProvider } from "@/context/AuthContext"
+import Navbar from "@/components/NavBar"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,9 +25,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body className={`${inter.variable} ${inter.className}`}>
-        {children}
-        <ChatBot />
+      <body className={`${inter.variable} ${inter.className}`} suppressHydrationWarning>
+        <AuthProvider>
+          <Navbar />
+          {children}
+          <ChatBot />
+        </AuthProvider>
       </body>
     </html>
   )
