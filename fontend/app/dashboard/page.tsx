@@ -63,10 +63,10 @@ export default function DashboardPage() {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
         // Fetch orders
-        const ordersRes = await axios.get('http://localhost:8080/apis/orders/my-orders');
-        if (Array.isArray(ordersRes.data)) {
-          setPendingOrders(ordersRes.data);
-        }
+        // const ordersRes = await axios.get('http://localhost:8080/apis/orders/my-orders');
+        // if (Array.isArray(ordersRes.data)) {
+        //   setPendingOrders(ordersRes.data);
+        // }
 
         // Example stats (mock data)
         setStats([
@@ -122,7 +122,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b bg-white sticky top-0 z-50">
+      {/* <header className="border-b bg-white sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Tent className="h-8 w-8 text-green-600" />
@@ -144,7 +144,7 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <div className="container mx-auto px-4 py-8">
         {/* Welcome */}
